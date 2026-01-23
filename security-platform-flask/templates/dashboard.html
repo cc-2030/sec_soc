@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>安全态势总览</h2>
+    <p>实时监控系统安全状态 <span id="ws-status" class="badge low">离线</span></p>
+</div>
+
+<div class="grid grid-4" id="stats-cards">
+    <div class="card">
+        <div class="card-header"><span class="card-title">安全评分</span><span>🛡️</span></div>
+        <div class="stat-value green" id="security-score">--</div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">活跃威胁</span><span>⚠️</span></div>
+        <div class="stat-value red" id="active-threats">--</div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">开放漏洞</span><span>🔓</span></div>
+        <div class="stat-value blue" id="open-vulns">--</div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">资产总数</span><span>🖥️</span></div>
+        <div class="stat-value yellow" id="total-assets">--</div>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header"><span class="card-title">威胁趋势 (7天)</span></div>
+        <canvas id="trend-chart" height="200"></canvas>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">实时告警</span></div>
+        <div id="alerts-list"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script src="/static/js/modules/websocket.js"></script>
+<script src="/static/js/modules/notification.js"></script>
+<script>
+let trendChart = null;
+let pollingInterval = null;
+
+// 更新仪表盘数据
+async function updateDashboard() {
+    try {
+        const response = await fetch('/api/dashboard/overview');
+        const result = await response.json();
+        const overview = result.data || result;
+        
+        document.getElementById('security-score').textContent = overview.security_score;
+        document.getElementById('active-threats').textContent = overview.active_threats;
+        document.getElementById('open-vulns').textContent = overview.open_vulnerabilities;
+        document.getElementById('total-assets').textContent = overview.total_assets;
+
+        // 更新图表
+        if (trendChart && overview.trends) {
+            trendChart.data.datasets[0].data = overview.trends.threats;
+            trendChart.data.datasets[1].data = overview.trends.incidents;
+            trendChart.update('none');
+        }
+    } catch (e) {
+        console.error('更新仪表盘失败:', e);
+    }
+}
+
+// 更新告警列表
+async function updateAlerts() {
+    try {
+        const response = await fetch('/api/dashboard/alerts');
+        const result = await response.json();
+        const alerts = result.data || result;
+        
+        document.getElementById('alerts-list').innerHTML = alerts.map(a => `
+            <div class="alert-item">
+                <span class="badge ${a.severity}">${a.severity}</span>
+                <div class="alert-content">
+                    <div class="alert-title">${a.title}</div>
+                    <div class="alert-time">${a.time || ''}</div>
+                </div>
+                <span class="badge ${a.status === 'closed' ? 'low' : 'medium'}">${a.status}</span>
+            </div>
+        `).join('') || '<p class="text-muted">暂无告警</p>';
+    } catch (e) {
+        console.error('更新告警失败:', e);
+    }
+}
+
+// 初始化 WebSocket
+async function initWebSocket() {
+    const wsStatus = document.getElementById('ws-status');
+    
+    try {
+        await WebSocketClient.connect();
+        
+        // 连接成功
+        WebSocketClient.on('connected', () => {
+            wsStatus.textContent = '在线';
+            wsStatus.className = 'badge high';
+            // 停止轮询
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+        });
+        
+        // 订阅仪表盘更新和告警
+        WebSocketClient.subscribeDashboard();
+        WebSocketClient.subscribeAlerts('all');
+        
+        // 处理仪表盘更新
+        WebSocketClient.on('dashboard_update', (data) => {
+            console.log('收到仪表盘更新:', data);
+            updateDashboard();
+            updateAlerts();
+        });
+        
+        // 处理告警
+        WebSocketClient.on('alert', (data) => {
+            console.log('收到告警:', data);
+            NotificationManager.handleAlert(data);
+            updateAlerts();
+        });
+        
+        // 断开连接时启用轮询回退
+        WebSocketClient.on('disconnected', () => {
+            wsStatus.textContent = '离线';
+            wsStatus.className = 'badge low';
+            startPolling();
+        });
+        
+    } catch (e) {
+        console.warn('WebSocket 连接失败，使用轮询回退:', e);
+        wsStatus.textContent = '轮询';
+        wsStatus.className = 'badge medium';
+        startPolling();
+    }
+}
+
+// 轮询回退机制
+function startPolling() {
+    if (!pollingInterval) {
+        pollingInterval = setInterval(() => {
+            updateDashboard();
+            updateAlerts();
+        }, 30000); // 30秒轮询
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // 初始化通知系统
+    NotificationManager.init();
+    NotificationManager.requestPermission();
+    
+    // 加载初始数据
+    await updateDashboard();
+    await updateAlerts();
+    
+    // 初始化图表
+    const overview = await fetch('/api/dashboard/overview').then(r => r.json()).then(r => r.data || r);
+    trendChart = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: {
+            labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
+            datasets: [
+                { label: '威胁', data: overview.trends?.threats || [], borderColor: '#ef4444', tension: 0.3 },
+                { label: '事件', data: overview.trends?.incidents || [], borderColor: '#38bdf8', tension: 0.3 }
+            ]
+        },
+        options: { 
+            responsive: true, 
+            plugins: { legend: { labels: { color: '#94a3b8' } } }, 
+            scales: { 
+                x: { ticks: { color: '#64748b' } }, 
+                y: { ticks: { color: '#64748b' } } 
+            } 
+        }
+    });
+    
+    // 初始化 WebSocket
+    initWebSocket();
+});
+</script>
+{% endblock %}

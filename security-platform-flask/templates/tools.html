@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}安全工具 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>安全工具</h2>
+    <p>管理和运行安全扫描工具</p>
+</div>
+
+<div class="grid grid-2" id="tools-list"></div>
+
+<div class="card" style="margin-top: 20px;">
+    <div class="card-header"><span class="card-title">执行结果</span></div>
+    <div id="tool-results">
+        <p style="color: #64748b;">选择工具并点击运行查看结果</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const tools = await fetch('/api/tools').then(r => r.json());
+    document.getElementById('tools-list').innerHTML = tools.map(t => `
+        <div class="card tool-card">
+            <div class="tool-info">
+                <h4>${t.name}</h4>
+                <p>${t.description}</p>
+                <span class="badge ${t.status === 'active' ? 'active' : 'inactive'}">${t.status}</span>
+            </div>
+            <button class="btn btn-primary" onclick="runTool('${t.id}', '${t.name}')">▶ 运行</button>
+        </div>
+    `).join('');
+});
+
+async function runTool(id, name) {
+    document.getElementById('tool-results').innerHTML = '<p style="color: #38bdf8;">⏳ 正在运行 ' + name + '...</p>';
+    const result = await fetch('/api/tools/' + id + '/run', { method: 'POST' }).then(r => r.json());
+    document.getElementById('tool-results').innerHTML = `
+        <div class="result-item">
+            <h4>✅ ${name} 执行完成</h4>
+            <p>扫描数量: <strong>${result.results.scanned}</strong></p>
+            <p>发现问题: <strong style="color: ${result.results.findings > 0 ? '#ef4444' : '#22c55e'}">${result.results.findings}</strong></p>
+            <p>执行时间: ${new Date(result.start_time).toLocaleString()}</p>
+        </div>
+    `;
+}
+</script>
+{% endblock %}

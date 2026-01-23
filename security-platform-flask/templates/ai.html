@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}AI 分析 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>AI 智能分析</h2>
+    <p>基于 AI 的威胁检测和安全建议</p>
+</div>
+
+<div class="card ai-panel">
+    <div class="card-header">
+        <span class="card-title">🤖 AI 日志分析</span>
+        <div>
+            <label style="margin-right: 10px; color: #94a3b8;">
+                <input type="checkbox" id="use-ai-checkbox"> 使用真实 AI
+            </label>
+            <button class="btn btn-secondary" onclick="runStreamAnalysis()" id="stream-btn">📡 流式分析</button>
+            <button class="btn btn-primary" onclick="runAnalysis()" id="analyze-btn">⚡ 开始分析</button>
+        </div>
+    </div>
+    <div id="analysis-result">
+        <p style="color: #64748b;">点击"开始分析"让 AI 分析当前安全日志</p>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header"><span class="card-title">🚨 威胁检测</span></div>
+        <div id="threats-list"></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">💡 AI 安全建议</span></div>
+        <div id="recommendations-list"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    loadThreats();
+    loadRecommendations();
+});
+
+async function loadThreats() {
+    try {
+        const response = await fetch('/api/ai/detect-threats', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: '{}' 
+        });
+        const result = await response.json();
+        const threats = result.data || result;
+        
+        document.getElementById('threats-list').innerHTML = (threats.threats || []).map(t => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-type">${t.type}</div>
+                    <div class="threat-path">${t.source} → ${t.target}</div>
+                    ${t.recommendation ? `<div class="threat-rec">${t.recommendation}</div>` : ''}
+                </div>
+                <div class="threat-confidence ${t.confidence > 0.8 ? 'high' : 'medium'}">
+                    <div class="confidence-value">${Math.round(t.confidence * 100)}%</div>
+                    <div class="confidence-label">置信度</div>
+                </div>
+            </div>
+        `).join('') || '<p class="text-muted">暂无威胁</p>';
+    } catch (e) {
+        console.error('加载威胁失败:', e);
+    }
+}
+
+async function loadRecommendations() {
+    try {
+        const recs = await fetch('/api/ai/recommendations').then(r => r.json());
+        document.getElementById('recommendations-list').innerHTML = (recs.recommendations || []).map(r => `
+            <div class="rec-item">
+                <span class="badge ${r.priority}">${r.priority}</span>
+                <div class="rec-content">
+                    <div class="rec-title">${r.title}</div>
+                    <div class="rec-desc">${r.description}</div>
+                </div>
+            </div>
+        `).join('') || '<p class="text-muted">暂无建议</p>';
+    } catch (e) {
+        console.error('加载建议失败:', e);
+    }
+}
+
+async function runAnalysis() {
+    const btn = document.getElementById('analyze-btn');
+    const useAI = document.getElementById('use-ai-checkbox').checked;
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ 分析中...';
+    document.getElementById('analysis-result').innerHTML = '<p style="color: #38bdf8;">AI 正在分析安全日志...</p>';
+
+    try {
+        const response = await fetch('/api/ai/analyze-logs', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ use_ai: useAI })
+        });
+        const data = await response.json();
+        const result = data.data || data;
+        
+        if (!response.ok) {
+            throw new Error(data.message || '分析失败');
+        }
+        
+        displayAnalysisResult(result);
+    } catch (e) {
+        document.getElementById('analysis-result').innerHTML = `
+            <div class="error-message">
+                <span class="badge critical">错误</span>
+                <span>${e.message}</span>
+            </div>
+        `;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '⚡ 重新分析';
+    }
+}
+
+async function runStreamAnalysis() {
+    const btn = document.getElementById('stream-btn');
+    btn.disabled = true;
+    btn.textContent = '📡 接收中...';
+    
+    const resultDiv = document.getElementById('analysis-result');
+    resultDiv.innerHTML = '<pre class="stream-output" id="stream-content"></pre>';
+    const streamContent = document.getElementById('stream-content');
+    
+    try {
+        const eventSource = new EventSource('/api/ai/analyze-logs/stream');
+        
+        eventSource.onmessage = (event) => {
+            if (event.data === '[DONE]') {
+                eventSource.close();
+                btn.disabled = false;
+                btn.textContent = '📡 流式分析';
+            } else if (event.data.startsWith('[ERROR]')) {
+                streamContent.textContent += '\n' + event.data;
+                eventSource.close();
+                btn.disabled = false;
+                btn.textContent = '📡 流式分析';
+            } else {
+                streamContent.textContent += event.data;
+            }
+        };
+        
+        eventSource.onerror = () => {
+            eventSource.close();
+            streamContent.textContent += '\n[连接断开]';
+            btn.disabled = false;
+            btn.textContent = '📡 流式分析';
+        };
+    } catch (e) {
+        resultDiv.innerHTML = `<p class="error-message">${e.message}</p>`;
+        btn.disabled = false;
+        btn.textContent = '📡 流式分析';
+    }
+}
+
+function displayAnalysisResult(result) {
+    document.getElementById('analysis-result').innerHTML = `
+        <div class="analysis-summary">
+            <div class="summary-header">
+                <span class="badge ${result.risk_level === 'high' || result.risk_level === 'critical' ? 'critical' : result.risk_level === 'medium' ? 'high' : 'low'}">
+                    风险等级: ${result.risk_level || 'unknown'}
+                </span>
+                <span>${result.summary || '分析完成'}</span>
+            </div>
+        </div>
+        <div class="findings-grid">
+            ${(result.findings || []).map(f => `
+                <div class="finding-card">
+                    <div class="finding-header">
+                        <span>${f.type}</span>
+                        <span class="badge ${f.severity}">${f.severity}</span>
+                    </div>
+                    <div class="finding-count">发现 ${f.count} 次</div>
+                    <div class="finding-rec">${f.recommendation}</div>
+                </div>
+            `).join('')}
+        </div>
+        ${result.patterns ? `
+        <div class="patterns-section">
+            <strong>检测到的模式:</strong>
+            <div class="patterns-list">${result.patterns.map(p => `<span class="badge medium">${p}</span>`).join('')}</div>
+        </div>
+        ` : ''}
+        ${result.recommendations ? `
+        <div class="ai-recommendations">
+            <strong>AI 建议:</strong>
+            <ul>${result.recommendations.map(r => `<li>${r}</li>`).join('')}</ul>
+        </div>
+        ` : ''}
+    `;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}安全运营平台{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <h1>🛡️ 安全平台</h1>
+            <nav>
+                <div class="nav-section">态势感知</div>
+                <a href="/" class="{{ 'active' if request.path == '/' else '' }}">📊 安全态势</a>
+                <a href="/logs" class="{{ 'active' if request.path == '/logs' else '' }}">📋 日志分析</a>
+                <a href="/ai" class="{{ 'active' if request.path == '/ai' else '' }}">🤖 AI 分析</a>
+                
+                <div class="nav-section">资产与漏洞</div>
+                <a href="/assets" class="{{ 'active' if request.path == '/assets' else '' }}">🖥️ 资产管理</a>
+                <a href="/vulnerabilities" class="{{ 'active' if request.path == '/vulnerabilities' else '' }}">🔓 漏洞管理</a>
+                
+                <div class="nav-section">威胁与响应</div>
+                <a href="/incidents" class="{{ 'active' if request.path == '/incidents' else '' }}">🚨 事件响应</a>
+                <a href="/threat-intel" class="{{ 'active' if request.path == '/threat-intel' else '' }}">🎯 威胁情报</a>
+                
+                <div class="nav-section">合规与报表</div>
+                <a href="/compliance" class="{{ 'active' if request.path == '/compliance' else '' }}">✅ 合规管理</a>
+                <a href="/reports" class="{{ 'active' if request.path == '/reports' else '' }}">📈 报表中心</a>
+                
+                <div class="nav-section">系统管理</div>
+                <a href="/tools" class="{{ 'active' if request.path == '/tools' else '' }}">🔧 安全工具</a>
+                <a href="/settings" class="{{ 'active' if request.path == '/settings' else '' }}">⚙️ 系统配置</a>
+            </nav>
+            
+            <!-- 用户信息区域 -->
+            <div class="user-info">
+                <div class="user-avatar">👤</div>
+                <div class="user-details">
+                    <span class="username">{{ current_user.username }}</span>
+                    <span class="user-role">{{ current_user.roles[0].name if current_user.roles else 'user' }}</span>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="登出">🚪</a>
+            </div>
+        </aside>
+        <main class="main">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <!-- 核心模块 -->
+    <script src="{{ url_for('static', filename='js/modules/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/notification.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/error-handler.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/components/loading.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/components/modal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/components/data-table.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

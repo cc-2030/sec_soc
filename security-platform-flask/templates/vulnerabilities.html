@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}漏洞管理 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>漏洞管理</h2>
+    <p>漏洞全生命周期管理与跟踪</p>
+</div>
+
+<!-- 漏洞概览 -->
+<div class="grid grid-4" style="margin-bottom: 20px;">
+    <div class="card vuln-stat critical">
+        <div class="vuln-stat-num" id="critical-count">0</div>
+        <div class="vuln-stat-label">严重漏洞</div>
+        <div class="vuln-stat-trend">↑ 2 本周新增</div>
+    </div>
+    <div class="card vuln-stat high">
+        <div class="vuln-stat-num" id="high-count">0</div>
+        <div class="vuln-stat-label">高危漏洞</div>
+        <div class="vuln-stat-trend">↓ 5 已修复</div>
+    </div>
+    <div class="card vuln-stat medium">
+        <div class="vuln-stat-num" id="medium-count">0</div>
+        <div class="vuln-stat-label">中危漏洞</div>
+        <div class="vuln-stat-trend">待处理</div>
+    </div>
+    <div class="card vuln-stat low">
+        <div class="vuln-stat-num" id="low-count">0</div>
+        <div class="vuln-stat-label">低危漏洞</div>
+        <div class="vuln-stat-trend">可接受风险</div>
+    </div>
+</div>
+
+<div class="grid grid-3">
+    <!-- 漏洞列表 -->
+    <div class="card" style="grid-column: span 2;">
+        <div class="card-header">
+            <span class="card-title">漏洞列表</span>
+            <div class="header-actions">
+                <select id="vuln-status-filter" onchange="loadVulnerabilities()">
+                    <option value="">所有状态</option>
+                    <option value="open">待修复</option>
+                    <option value="in_progress">修复中</option>
+                    <option value="fixed">已修复</option>
+                    <option value="accepted">已接受</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="startScan()">🔍 发起扫描</button>
+            </div>
+        </div>
+        <div id="vuln-list"></div>
+    </div>
+
+    <!-- 漏洞趋势 -->
+    <div class="card">
+        <div class="card-header"><span class="card-title">修复趋势 (30天)</span></div>
+        <canvas id="vuln-trend-chart" height="200"></canvas>
+        
+        <div class="card-header" style="margin-top: 20px;"><span class="card-title">MTTR (平均修复时间)</span></div>
+        <div class="mttr-stats">
+            <div class="mttr-item">
+                <span class="mttr-label">严重</span>
+                <span class="mttr-value critical">2.5 天</span>
+            </div>
+            <div class="mttr-item">
+                <span class="mttr-label">高危</span>
+                <span class="mttr-value high">5.2 天</span>
+            </div>
+            <div class="mttr-item">
+                <span class="mttr-label">中危</span>
+                <span class="mttr-value medium">12.8 天</span>
+            </div>
+        </div>
+
+        <div class="card-header" style="margin-top: 20px;"><span class="card-title">Top 受影响资产</span></div>
+        <div id="affected-assets"></div>
+    </div>
+</div>
+
+<!-- 漏洞详情弹窗 -->
+<div id="vuln-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 id="vuln-modal-title">漏洞详情</h3>
+            <button class="modal-close" onclick="closeVulnModal()">×</button>
+        </div>
+        <div id="vuln-detail"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let vulnerabilities = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadVulnerabilities();
+    renderTrendChart();
+    loadAffectedAssets();
+});
+
+async function loadVulnerabilities() {
+    const status = document.getElementById('vuln-status-filter').value;
+    const params = status ? `?status=${status}` : '';
+    vulnerabilities = await fetch('/api/vulnerabilities' + params).then(r => r.json());
+    renderVulnerabilities();
+    updateVulnStats();
+}
+
+function renderVulnerabilities() {
+    document.getElementById('vuln-list').innerHTML = vulnerabilities.map(v => `
+        <div class="vuln-item" onclick="showVulnDetail('${v.id}')">
+            <div class="vuln-severity ${v.severity}"></div>
+            <div class="vuln-info">
+                <div class="vuln-title">${v.cve_id || 'N/A'} - ${v.title}</div>
+                <div class="vuln-meta">
+                    <span>CVSS: ${v.cvss_score}</span>
+                    <span>影响: ${v.affected_assets} 个资产</span>
+                    <span>发现: ${formatDate(v.discovered_at)}</span>
+                </div>
+            </div>
+            <div class="vuln-status">
+                <span class="badge ${v.status}">${getStatusName(v.status)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateVulnStats() {
+    document.getElementById('critical-count').textContent = vulnerabilities.filter(v => v.severity === 'critical').length;
+    document.getElementById('high-count').textContent = vulnerabilities.filter(v => v.severity === 'high').length;
+    document.getElementById('medium-count').textContent = vulnerabilities.filter(v => v.severity === 'medium').length;
+    document.getElementById('low-count').textContent = vulnerabilities.filter(v => v.severity === 'low').length;
+}
+
+function renderTrendChart() {
+    new Chart(document.getElementById('vuln-trend-chart'), {
+        type: 'line',
+        data: {
+            labels: ['W1', 'W2', 'W3', 'W4'],
+            datasets: [
+                { label: '新增', data: [12, 8, 15, 6], borderColor: '#ef4444', tension: 0.3 },
+                { label: '修复', data: [8, 12, 10, 14], borderColor: '#22c55e', tension: 0.3 }
+            ]
+        },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#64748b' } } } }
+    });
+}
+
+async function loadAffectedAssets() {
+    const assets = await fetch('/api/vulnerabilities/affected-assets').then(r => r.json());
+    document.getElementById('affected-assets').innerHTML = assets.map(a => `
+        <div class="affected-asset-item">
+            <span>${a.name}</span>
+            <span class="vuln-count">${a.vuln_count} 个漏洞</span>
+        </div>
+    `).join('');
+}
+
+async function showVulnDetail(id) {
+    const v = await fetch(`/api/vulnerabilities/${id}`).then(r => r.json());
+    document.getElementById('vuln-modal-title').textContent = v.cve_id || v.title;
+    document.getElementById('vuln-detail').innerHTML = `
+        <div class="vuln-detail-grid">
+            <div class="detail-section">
+                <h4>基本信息</h4>
+                <div class="detail-row"><span>CVE ID:</span><span>${v.cve_id || 'N/A'}</span></div>
+                <div class="detail-row"><span>CVSS 评分:</span><span class="cvss ${v.severity}">${v.cvss_score}</span></div>
+                <div class="detail-row"><span>严重级别:</span><span class="badge ${v.severity}">${v.severity}</span></div>
+                <div class="detail-row"><span>状态:</span><span class="badge ${v.status}">${getStatusName(v.status)}</span></div>
+                <div class="detail-row"><span>发现时间:</span><span>${formatDate(v.discovered_at)}</span></div>
+            </div>
+            <div class="detail-section">
+                <h4>描述</h4>
+                <p>${v.description}</p>
+            </div>
+            <div class="detail-section">
+                <h4>受影响资产 (${v.affected_assets})</h4>
+                <div class="affected-list">${(v.assets || []).map(a => `<span class="tag">${a}</span>`).join('')}</div>
+            </div>
+            <div class="detail-section">
+                <h4>修复建议</h4>
+                <p>${v.remediation || '暂无修复建议'}</p>
+            </div>
+            <div class="detail-section">
+                <h4>参考链接</h4>
+                <ul>${(v.references || []).map(r => `<li><a href="${r}" target="_blank">${r}</a></li>`).join('')}</ul>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="updateVulnStatus('${v.id}', 'in_progress')">开始修复</button>
+            <button class="btn btn-primary" onclick="updateVulnStatus('${v.id}', 'fixed')">标记已修复</button>
+            <button class="btn btn-secondary" onclick="updateVulnStatus('${v.id}', 'accepted')">接受风险</button>
+        </div>
+    `;
+    document.getElementById('vuln-modal').style.display = 'flex';
+}
+
+function closeVulnModal() { document.getElementById('vuln-modal').style.display = 'none'; }
+
+async function updateVulnStatus(id, status) {
+    await fetch(`/api/vulnerabilities/${id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status }) });
+    closeVulnModal();
+    loadVulnerabilities();
+}
+
+async function startScan() {
+    showToast('漏洞扫描已启动...');
+    await fetch('/api/vulnerabilities/scan', { method: 'POST' });
+}
+
+function getStatusName(s) { return {open:'待修复',in_progress:'修复中',fixed:'已修复',accepted:'已接受'}[s] || s; }
+function formatDate(d) { return new Date(d).toLocaleDateString('zh-CN'); }
+function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000); }
+</script>
+{% endblock %}

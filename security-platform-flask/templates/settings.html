@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+{% block title %}系统配置 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>系统配置</h2>
+    <p>管理日志源、工具、告警规则等配置</p>
+</div>
+
+<div class="tabs">
+    <button class="tab active" onclick="switchTab('log-sources')">日志源配置</button>
+    <button class="tab" onclick="switchTab('alert-rules')">告警规则</button>
+    <button class="tab" onclick="switchTab('ai-config')">AI 配置</button>
+    <button class="tab" onclick="switchTab('system')">系统设置</button>
+</div>
+
+<!-- 日志源配置 -->
+<div id="log-sources" class="tab-content active">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">已配置的日志源</span>
+            <button class="btn btn-primary" onclick="showAddLogSource()">+ 添加日志源</button>
+        </div>
+        <div id="log-sources-list"></div>
+    </div>
+
+    <!-- 添加日志源表单 -->
+    <div id="add-log-source-form" class="card form-card" style="display: none; margin-top: 20px;">
+        <div class="card-header"><span class="card-title">添加日志源</span></div>
+        <form onsubmit="addLogSource(event)">
+            <div class="form-group">
+                <label>日志源名称</label>
+                <input type="text" name="name" placeholder="如: 生产环境SLS" required>
+            </div>
+            <div class="form-group">
+                <label>类型</label>
+                <select name="type" onchange="updateLogSourceFields(this.value)">
+                    <option value="sls">阿里云 SLS</option>
+                    <option value="elasticsearch">Elasticsearch</option>
+                    <option value="kafka">Kafka</option>
+                    <option value="syslog">Syslog</option>
+                    <option value="file">文件日志</option>
+                    <option value="api">API 接口</option>
+                </select>
+            </div>
+            <div id="log-source-fields">
+                <!-- SLS 默认字段 -->
+                <div class="form-group">
+                    <label>Endpoint</label>
+                    <input type="text" name="endpoint" placeholder="cn-hangzhou.log.aliyuncs.com">
+                </div>
+                <div class="form-group">
+                    <label>Project</label>
+                    <input type="text" name="project" placeholder="your-project">
+                </div>
+                <div class="form-group">
+                    <label>Logstore</label>
+                    <input type="text" name="logstore" placeholder="your-logstore">
+                </div>
+                <div class="form-group">
+                    <label>Access Key ID</label>
+                    <input type="text" name="access_key_id" placeholder="LTAI...">
+                </div>
+                <div class="form-group">
+                    <label>Access Key Secret</label>
+                    <input type="password" name="access_key_secret" placeholder="••••••••">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>采集间隔 (秒)</label>
+                <input type="number" name="interval" value="60" min="10">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="enabled" checked> 启用
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideAddLogSource()">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 告警规则 -->
+<div id="alert-rules" class="tab-content">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">告警规则</span>
+            <button class="btn btn-primary" onclick="showAddAlertRule()">+ 添加规则</button>
+        </div>
+        <div id="alert-rules-list"></div>
+    </div>
+
+    <div id="add-alert-rule-form" class="card form-card" style="display: none; margin-top: 20px;">
+        <div class="card-header"><span class="card-title">添加告警规则</span></div>
+        <form onsubmit="addAlertRule(event)">
+            <div class="form-group">
+                <label>规则名称</label>
+                <input type="text" name="name" placeholder="如: SQL注入检测" required>
+            </div>
+            <div class="form-group">
+                <label>日志源</label>
+                <select name="log_source" id="rule-log-source"></select>
+            </div>
+            <div class="form-group">
+                <label>匹配条件 (正则表达式)</label>
+                <input type="text" name="pattern" placeholder="如: (SELECT|INSERT|UPDATE|DELETE).*FROM">
+            </div>
+            <div class="form-group">
+                <label>严重级别</label>
+                <select name="severity">
+                    <option value="low">低</option>
+                    <option value="medium">中</option>
+                    <option value="high" selected>高</option>
+                    <option value="critical">严重</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>触发阈值 (次/分钟)</label>
+                <input type="number" name="threshold" value="5" min="1">
+            </div>
+            <div class="form-group">
+                <label>通知方式</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="notify_email" checked> 邮件</label>
+                    <label><input type="checkbox" name="notify_webhook"> Webhook</label>
+                    <label><input type="checkbox" name="notify_sms"> 短信</label>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideAddAlertRule()">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- AI 配置 -->
+<div id="ai-config" class="tab-content">
+    <div class="card">
+        <div class="card-header"><span class="card-title">AI 分析配置</span></div>
+        <form onsubmit="saveAIConfig(event)">
+            <div class="form-group">
+                <label>AI 服务提供商</label>
+                <select name="ai_provider" onchange="updateAIFields(this.value)">
+                    <option value="openai">OpenAI</option>
+                    <option value="azure">Azure OpenAI</option>
+                    <option value="local">本地模型</option>
+                </select>
+            </div>
+            <div id="ai-fields">
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="password" name="api_key" placeholder="sk-...">
+                </div>
+                <div class="form-group">
+                    <label>模型</label>
+                    <select name="model">
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="auto_analyze" checked> 自动分析新日志
+                </label>
+            </div>
+            <div class="form-group">
+                <label>分析频率</label>
+                <select name="analyze_frequency">
+                    <option value="realtime">实时</option>
+                    <option value="5min" selected>每5分钟</option>
+                    <option value="15min">每15分钟</option>
+                    <option value="hourly">每小时</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">保存配置</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 系统设置 -->
+<div id="system" class="tab-content">
+    <div class="card">
+        <div class="card-header"><span class="card-title">通知设置</span></div>
+        <form onsubmit="saveNotifyConfig(event)">
+            <div class="form-group">
+                <label>邮件服务器 (SMTP)</label>
+                <input type="text" name="smtp_host" placeholder="smtp.example.com">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>端口</label>
+                    <input type="number" name="smtp_port" value="587">
+                </div>
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" name="smtp_user" placeholder="user@example.com">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" name="smtp_pass">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Webhook URL</label>
+                <input type="text" name="webhook_url" placeholder="https://hooks.example.com/...">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">保存配置</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-header"><span class="card-title">数据保留</span></div>
+        <form onsubmit="saveRetentionConfig(event)">
+            <div class="form-group">
+                <label>日志保留天数</label>
+                <input type="number" name="log_retention" value="30" min="1">
+            </div>
+            <div class="form-group">
+                <label>告警保留天数</label>
+                <input type="number" name="alert_retention" value="90" min="1">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">保存配置</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let logSources = [];
+let alertRules = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadLogSources();
+    await loadAlertRules();
+    await loadConfigs();
+});
+
+// Tab 切换
+function switchTab(tabId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+}
+
+// 日志源管理
+async function loadLogSources() {
+    logSources = await fetch('/api/settings/log-sources').then(r => r.json());
+    renderLogSources();
+    updateLogSourceSelect();
+}
+
+function renderLogSources() {
+    const list = document.getElementById('log-sources-list');
+    if (logSources.length === 0) {
+        list.innerHTML = '<p class="empty-state">暂无配置的日志源，点击上方按钮添加</p>';
+        return;
+    }
+    list.innerHTML = logSources.map(s => `
+        <div class="config-item">
+            <div class="config-info">
+                <div class="config-name">${s.name}</div>
+                <div class="config-meta">
+                    <span class="badge ${s.type}">${s.type.toUpperCase()}</span>
+                    <span>${s.endpoint || s.host || s.path || '-'}</span>
+                </div>
+            </div>
+            <div class="config-status">
+                <span class="status-dot ${s.enabled ? 'active' : 'inactive'}"></span>
+                ${s.enabled ? '运行中' : '已停用'}
+            </div>
+            <div class="config-actions">
+                <button class="btn btn-secondary btn-sm" onclick="testLogSource('${s.id}')">测试</button>
+                <button class="btn btn-secondary btn-sm" onclick="toggleLogSource('${s.id}', ${!s.enabled})">${s.enabled ? '停用' : '启用'}</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteLogSource('${s.id}')">删除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showAddLogSource() {
+    document.getElementById('add-log-source-form').style.display = 'block';
+}
+
+function hideAddLogSource() {
+    document.getElementById('add-log-source-form').style.display = 'none';
+}
+
+function updateLogSourceFields(type) {
+    const fields = document.getElementById('log-source-fields');
+    const configs = {
+        sls: `
+            <div class="form-group"><label>Endpoint</label><input type="text" name="endpoint" placeholder="cn-hangzhou.log.aliyuncs.com"></div>
+            <div class="form-group"><label>Project</label><input type="text" name="project" placeholder="your-project"></div>
+            <div class="form-group"><label>Logstore</label><input type="text" name="logstore" placeholder="your-logstore"></div>
+            <div class="form-group"><label>Access Key ID</label><input type="text" name="access_key_id"></div>
+            <div class="form-group"><label>Access Key Secret</label><input type="password" name="access_key_secret"></div>
+        `,
+        elasticsearch: `
+            <div class="form-group"><label>主机地址</label><input type="text" name="host" placeholder="https://localhost:9200"></div>
+            <div class="form-group"><label>索引模式</label><input type="text" name="index" placeholder="logs-*"></div>
+            <div class="form-group"><label>用户名</label><input type="text" name="username"></div>
+            <div class="form-group"><label>密码</label><input type="password" name="password"></div>
+        `,
+        kafka: `
+            <div class="form-group"><label>Broker 地址</label><input type="text" name="brokers" placeholder="localhost:9092"></div>
+            <div class="form-group"><label>Topic</label><input type="text" name="topic" placeholder="security-logs"></div>
+            <div class="form-group"><label>Consumer Group</label><input type="text" name="group_id" placeholder="security-platform"></div>
+        `,
+        syslog: `
+            <div class="form-group"><label>监听端口</label><input type="number" name="port" value="514"></div>
+            <div class="form-group"><label>协议</label><select name="protocol"><option value="udp">UDP</option><option value="tcp">TCP</option></select></div>
+        `,
+        file: `
+            <div class="form-group"><label>日志路径</label><input type="text" name="path" placeholder="/var/log/*.log"></div>
+            <div class="form-group"><label>编码</label><select name="encoding"><option value="utf-8">UTF-8</option><option value="gbk">GBK</option></select></div>
+        `,
+        api: `
+            <div class="form-group"><label>API URL</label><input type="text" name="url" placeholder="https://api.example.com/logs"></div>
+            <div class="form-group"><label>认证方式</label><select name="auth_type"><option value="bearer">Bearer Token</option><option value="basic">Basic Auth</option><option value="apikey">API Key</option></select></div>
+            <div class="form-group"><label>认证凭证</label><input type="password" name="auth_token"></div>
+        `
+    };
+    fields.innerHTML = configs[type] || '';
+}
+
+async function addLogSource(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    data.enabled = form.querySelector('[name="enabled"]').checked;
+    await fetch('/api/settings/log-sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    hideAddLogSource();
+    form.reset();
+    await loadLogSources();
+    showToast('日志源添加成功');
+}
+
+async function testLogSource(id) {
+    showToast('正在测试连接...');
+    const result = await fetch(`/api/settings/log-sources/${id}/test`, { method: 'POST' }).then(r => r.json());
+    showToast(result.success ? '连接成功!' : '连接失败: ' + result.error, result.success ? 'success' : 'error');
+}
+
+async function toggleLogSource(id, enabled) {
+    await fetch(`/api/settings/log-sources/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+    });
+    await loadLogSources();
+}
+
+async function deleteLogSource(id) {
+    if (!confirm('确定删除此日志源?')) return;
+    await fetch(`/api/settings/log-sources/${id}`, { method: 'DELETE' });
+    await loadLogSources();
+    showToast('日志源已删除');
+}
+
+// 告警规则管理
+async function loadAlertRules() {
+    alertRules = await fetch('/api/settings/alert-rules').then(r => r.json());
+    renderAlertRules();
+}
+
+function renderAlertRules() {
+    const list = document.getElementById('alert-rules-list');
+    if (alertRules.length === 0) {
+        list.innerHTML = '<p class="empty-state">暂无告警规则</p>';
+        return;
+    }
+    list.innerHTML = alertRules.map(r => `
+        <div class="config-item">
+            <div class="config-info">
+                <div class="config-name">${r.name}</div>
+                <div class="config-meta">
+                    <span class="badge ${r.severity}">${r.severity}</span>
+                    <span>阈值: ${r.threshold}次/分钟</span>
+                </div>
+            </div>
+            <div class="config-status">
+                <span class="status-dot ${r.enabled ? 'active' : 'inactive'}"></span>
+                ${r.enabled ? '启用' : '停用'}
+            </div>
+            <div class="config-actions">
+                <button class="btn btn-secondary btn-sm" onclick="toggleAlertRule('${r.id}', ${!r.enabled})">${r.enabled ? '停用' : '启用'}</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteAlertRule('${r.id}')">删除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateLogSourceSelect() {
+    const select = document.getElementById('rule-log-source');
+    select.innerHTML = '<option value="">所有日志源</option>' + 
+        logSources.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function showAddAlertRule() {
+    document.getElementById('add-alert-rule-form').style.display = 'block';
+}
+
+function hideAddAlertRule() {
+    document.getElementById('add-alert-rule-form').style.display = 'none';
+}
+
+async function addAlertRule(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    data.notify_email = form.querySelector('[name="notify_email"]').checked;
+    data.notify_webhook = form.querySelector('[name="notify_webhook"]').checked;
+    data.notify_sms = form.querySelector('[name="notify_sms"]').checked;
+    await fetch('/api/settings/alert-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    hideAddAlertRule();
+    form.reset();
+    await loadAlertRules();
+    showToast('告警规则添加成功');
+}
+
+async function toggleAlertRule(id, enabled) {
+    await fetch(`/api/settings/alert-rules/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+    });
+    await loadAlertRules();
+}
+
+async function deleteAlertRule(id) {
+    if (!confirm('确定删除此规则?')) return;
+    await fetch(`/api/settings/alert-rules/${id}`, { method: 'DELETE' });
+    await loadAlertRules();
+    showToast('规则已删除');
+}
+
+// AI 配置
+function updateAIFields(provider) {
+    const fields = document.getElementById('ai-fields');
+    const configs = {
+        openai: `
+            <div class="form-group"><label>API Key</label><input type="password" name="api_key" placeholder="sk-..."></div>
+            <div class="form-group"><label>模型</label><select name="model"><option value="gpt-4">GPT-4</option><option value="gpt-4-turbo">GPT-4 Turbo</option><option value="gpt-3.5-turbo">GPT-3.5 Turbo</option></select></div>
+        `,
+        azure: `
+            <div class="form-group"><label>Endpoint</label><input type="text" name="endpoint" placeholder="https://xxx.openai.azure.com"></div>
+            <div class="form-group"><label>API Key</label><input type="password" name="api_key"></div>
+            <div class="form-group"><label>Deployment Name</label><input type="text" name="deployment"></div>
+        `,
+        local: `
+            <div class="form-group"><label>模型地址</label><input type="text" name="endpoint" placeholder="http://localhost:11434"></div>
+            <div class="form-group"><label>模型名称</label><input type="text" name="model" placeholder="llama2"></div>
+        `
+    };
+    fields.innerHTML = configs[provider] || '';
+}
+
+async function loadConfigs() {
+    const config = await fetch('/api/settings/config').then(r => r.json());
+    // 填充表单...
+}
+
+async function saveAIConfig(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    await fetch('/api/settings/config/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    showToast('AI 配置已保存');
+}
+
+async function saveNotifyConfig(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    await fetch('/api/settings/config/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    showToast('通知配置已保存');
+}
+
+async function saveRetentionConfig(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    await fetch('/api/settings/config/retention', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    showToast('保留策略已保存');
+}
+
+function showToast(msg, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

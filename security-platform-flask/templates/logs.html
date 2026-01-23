@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}日志分析 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>日志分析</h2>
+    <p>查看和分析安全日志</p>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div class="filter-bar">
+        <span>🔍 筛选:</span>
+        <select id="level-filter" class="btn btn-secondary" onchange="loadLogs()">
+            <option value="">所有级别</option>
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="error">Error</option>
+            <option value="critical">Critical</option>
+        </select>
+        <select id="source-filter" class="btn btn-secondary" onchange="loadLogs()">
+            <option value="">所有来源</option>
+            <option value="firewall">Firewall</option>
+            <option value="ids">IDS</option>
+            <option value="waf">WAF</option>
+            <option value="auth">Auth</option>
+        </select>
+        <button class="btn btn-primary" onclick="loadLogs()">刷新</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><span class="card-title">日志统计</span></div>
+    <div id="log-stats" class="stats-bar"></div>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <table class="table">
+        <thead>
+            <tr><th>级别</th><th>时间</th><th>来源</th><th>消息</th><th>IP</th></tr>
+        </thead>
+        <tbody id="logs-table"></tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadLogs() {
+    const level = document.getElementById('level-filter').value;
+    const source = document.getElementById('source-filter').value;
+    const params = new URLSearchParams();
+    if (level) params.set('level', level);
+    if (source) params.set('source', source);
+    
+    const logs = await fetch('/api/logs?' + params).then(r => r.json());
+    document.getElementById('logs-table').innerHTML = logs.map(l => `
+        <tr>
+            <td><span class="log-level ${l.level}"></span> ${l.level}</td>
+            <td>${new Date(l.timestamp).toLocaleString()}</td>
+            <td>${l.source}</td>
+            <td>${l.message}</td>
+            <td>${l.ip || '-'}</td>
+        </tr>
+    `).join('');
+
+    const stats = await fetch('/api/logs/stats').then(r => r.json());
+    document.getElementById('log-stats').innerHTML = `
+        <div class="stat-item"><span class="stat-label">总计</span><span class="stat-num">${stats.total}</span></div>
+        ${Object.entries(stats.by_level).map(([k, v]) => `<div class="stat-item"><span class="stat-label log-level ${k}"></span><span>${k}: ${v}</span></div>`).join('')}
+    `;
+}
+document.addEventListener('DOMContentLoaded', loadLogs);
+</script>
+{% endblock %}

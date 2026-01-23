@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}报表中心 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>报表中心</h2>
+    <p>安全态势报告与数据导出</p>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header"><span class="card-title">📊 快速报表</span></div>
+        <div class="report-grid">
+            <div class="report-item" onclick="generateReport('daily')">
+                <div class="report-icon">📅</div>
+                <div class="report-name">日报</div>
+            </div>
+            <div class="report-item" onclick="generateReport('weekly')">
+                <div class="report-icon">📆</div>
+                <div class="report-name">周报</div>
+            </div>
+            <div class="report-item" onclick="generateReport('monthly')">
+                <div class="report-icon">🗓️</div>
+                <div class="report-name">月报</div>
+            </div>
+            <div class="report-item" onclick="generateReport('executive')">
+                <div class="report-icon">👔</div>
+                <div class="report-name">管理层报告</div>
+            </div>
+            <div class="report-item" onclick="generateReport('compliance')">
+                <div class="report-icon">📋</div>
+                <div class="report-name">合规报告</div>
+            </div>
+            <div class="report-item" onclick="generateReport('incident')">
+                <div class="report-icon">🚨</div>
+                <div class="report-name">事件报告</div>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">⚙️ 自定义报表</span></div>
+        <form onsubmit="generateCustomReport(event)">
+            <div class="form-group">
+                <label>报表名称</label>
+                <input type="text" name="name" placeholder="自定义报表名称">
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>开始日期</label><input type="date" name="start_date"></div>
+                <div class="form-group"><label>结束日期</label><input type="date" name="end_date"></div>
+            </div>
+            <div class="form-group">
+                <label>包含模块</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="modules" value="overview" checked> 概览</label>
+                    <label><input type="checkbox" name="modules" value="incidents" checked> 事件</label>
+                    <label><input type="checkbox" name="modules" value="vulnerabilities" checked> 漏洞</label>
+                    <label><input type="checkbox" name="modules" value="compliance"> 合规</label>
+                    <label><input type="checkbox" name="modules" value="assets"> 资产</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>导出格式</label>
+                <select name="format"><option value="pdf">PDF</option><option value="excel">Excel</option><option value="html">HTML</option></select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">生成报表</button>
+        </form>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <div class="card-header"><span class="card-title">📁 历史报表</span></div>
+    <table class="table">
+        <thead><tr><th>报表名称</th><th>类型</th><th>生成时间</th><th>大小</th><th>操作</th></tr></thead>
+        <tbody id="reports-history"></tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', loadReportsHistory);
+
+async function loadReportsHistory() {
+    const reports = await fetch('/api/reports/history').then(r => r.json());
+    document.getElementById('reports-history').innerHTML = reports.map(r => `
+        <tr>
+            <td>${r.name}</td>
+            <td><span class="badge">${r.type}</span></td>
+            <td>${new Date(r.created_at).toLocaleString('zh-CN')}</td>
+            <td>${r.size}</td>
+            <td><button class="btn btn-sm btn-primary" onclick="downloadReport('${r.id}')">下载</button></td>
+        </tr>
+    `).join('');
+}
+
+async function generateReport(type) {
+    showToast(`正在生成${type}报表...`);
+    await fetch(`/api/reports/generate/${type}`, { method: 'POST' });
+    loadReportsHistory();
+    showToast('报表生成完成');
+}
+
+function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000); }
+</script>
+{% endblock %}

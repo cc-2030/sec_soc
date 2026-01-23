@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}威胁情报 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>威胁情报中心</h2>
+    <p>IOC 管理与威胁情报订阅</p>
+</div>
+
+<div class="grid grid-4" style="margin-bottom: 20px;">
+    <div class="card"><div class="card-header"><span class="card-title">IOC 总数</span></div><div class="stat-value blue" id="total-iocs">0</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">今日新增</span></div><div class="stat-value green" id="new-iocs">0</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">命中告警</span></div><div class="stat-value red" id="hit-alerts">0</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">情报源</span></div><div class="stat-value yellow" id="intel-sources">0</div></div>
+</div>
+
+<div class="grid grid-3">
+    <div class="card" style="grid-column: span 2;">
+        <div class="card-header">
+            <span class="card-title">IOC 指标库</span>
+            <div class="header-actions">
+                <select id="ioc-type-filter" onchange="loadIOCs()">
+                    <option value="">所有类型</option>
+                    <option value="ip">IP 地址</option>
+                    <option value="domain">域名</option>
+                    <option value="hash">文件哈希</option>
+                    <option value="url">URL</option>
+                    <option value="email">邮箱</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="showAddIOC()">+ 添加 IOC</button>
+            </div>
+        </div>
+        <table class="table">
+            <thead><tr><th>类型</th><th>指标值</th><th>威胁类型</th><th>置信度</th><th>来源</th><th>操作</th></tr></thead>
+            <tbody id="ioc-list"></tbody>
+        </table>
+    </div>
+    <div>
+        <div class="card">
+            <div class="card-header"><span class="card-title">情报订阅源</span></div>
+            <div id="intel-feeds"></div>
+            <button class="btn btn-secondary btn-sm" style="margin-top: 12px; width: 100%;">+ 添加订阅</button>
+        </div>
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header"><span class="card-title">IOC 查询</span></div>
+            <input type="text" id="ioc-search" placeholder="输入 IP/域名/哈希 查询..." style="width: 100%; margin-bottom: 12px;">
+            <button class="btn btn-primary" style="width: 100%;" onclick="searchIOC()">🔍 查询</button>
+            <div id="ioc-search-result" style="margin-top: 12px;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => { loadIOCs(); loadIntelFeeds(); loadStats(); });
+
+async function loadIOCs() {
+    const type = document.getElementById('ioc-type-filter').value;
+    const iocs = await fetch('/api/threat-intel/iocs' + (type ? `?type=${type}` : '')).then(r => r.json());
+    document.getElementById('ioc-list').innerHTML = iocs.map(i => `
+        <tr>
+            <td><span class="badge ${i.type}">${i.type.toUpperCase()}</span></td>
+            <td class="ioc-value">${i.value}</td>
+            <td>${i.threat_type}</td>
+            <td><div class="confidence-bar"><div style="width: ${i.confidence}%"></div></div></td>
+            <td>${i.source}</td>
+            <td><button class="btn btn-sm btn-secondary" onclick="checkIOC('${i.value}')">检测</button></td>
+        </tr>
+    `).join('');
+}
+
+async function loadIntelFeeds() {
+    const feeds = await fetch('/api/threat-intel/feeds').then(r => r.json());
+    document.getElementById('intel-feeds').innerHTML = feeds.map(f => `
+        <div class="feed-item">
+            <div class="feed-info"><div class="feed-name">${f.name}</div><div class="feed-meta">更新: ${f.last_update}</div></div>
+            <span class="status-dot ${f.enabled ? 'active' : 'inactive'}"></span>
+        </div>
+    `).join('');
+}
+
+async function loadStats() {
+    const stats = await fetch('/api/threat-intel/stats').then(r => r.json());
+    document.getElementById('total-iocs').textContent = stats.total_iocs;
+    document.getElementById('new-iocs').textContent = stats.new_today;
+    document.getElementById('hit-alerts').textContent = stats.hit_alerts;
+    document.getElementById('intel-sources').textContent = stats.sources;
+}
+
+async function searchIOC() {
+    const q = document.getElementById('ioc-search').value;
+    if (!q) return;
+    const result = await fetch(`/api/threat-intel/search?q=${encodeURIComponent(q)}`).then(r => r.json());
+    document.getElementById('ioc-search-result').innerHTML = result.found 
+        ? `<div class="search-hit"><span class="badge ${result.threat_level}">${result.threat_level}</span> ${result.description}</div>`
+        : '<div class="search-miss">未发现威胁情报</div>';
+}
+</script>
+{% endblock %}

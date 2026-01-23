@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}资产管理 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>资产管理</h2>
+    <p>统一管理和监控所有 IT 资产</p>
+</div>
+
+<div class="toolbar">
+    <div class="search-box">
+        <input type="text" id="asset-search" placeholder="搜索资产名称、IP、标签..." onkeyup="filterAssets()">
+    </div>
+    <div class="toolbar-actions">
+        <select id="asset-type-filter" onchange="filterAssets()">
+            <option value="">所有类型</option>
+            <option value="server">服务器</option>
+            <option value="database">数据库</option>
+            <option value="application">应用系统</option>
+            <option value="network">网络设备</option>
+            <option value="endpoint">终端</option>
+            <option value="cloud">云资源</option>
+        </select>
+        <select id="asset-criticality-filter" onchange="filterAssets()">
+            <option value="">所有级别</option>
+            <option value="critical">核心资产</option>
+            <option value="high">重要资产</option>
+            <option value="medium">一般资产</option>
+            <option value="low">边缘资产</option>
+        </select>
+        <button class="btn btn-primary" onclick="showAddAsset()">+ 添加资产</button>
+        <button class="btn btn-secondary" onclick="importAssets()">📥 批量导入</button>
+    </div>
+</div>
+
+<!-- 资产统计 -->
+<div class="grid grid-5" style="margin: 20px 0;">
+    <div class="stat-card">
+        <div class="stat-icon blue">🖥️</div>
+        <div class="stat-info">
+            <div class="stat-num" id="total-assets">0</div>
+            <div class="stat-label">资产总数</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red">⚠️</div>
+        <div class="stat-info">
+            <div class="stat-num" id="risk-assets">0</div>
+            <div class="stat-label">风险资产</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow">🔓</div>
+        <div class="stat-info">
+            <div class="stat-num" id="unpatched-assets">0</div>
+            <div class="stat-label">待修补</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-info">
+            <div class="stat-num" id="compliant-assets">0</div>
+            <div class="stat-label">合规资产</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">🔍</div>
+        <div class="stat-info">
+            <div class="stat-num" id="discovered-assets">0</div>
+            <div class="stat-label">新发现</div>
+        </div>
+    </div>
+</div>
+
+<!-- 资产列表 -->
+<div class="card">
+    <table class="table" id="assets-table">
+        <thead>
+            <tr>
+                <th><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+                <th>资产名称</th>
+                <th>类型</th>
+                <th>IP/地址</th>
+                <th>责任人</th>
+                <th>重要性</th>
+                <th>风险评分</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="assets-list"></tbody>
+    </table>
+</div>
+
+<!-- 添加资产弹窗 -->
+<div id="asset-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>添加资产</h3>
+            <button class="modal-close" onclick="hideAddAsset()">×</button>
+        </div>
+        <form onsubmit="addAsset(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>资产名称 *</label>
+                    <input type="text" name="name" required placeholder="如: 生产数据库主节点">
+                </div>
+                <div class="form-group">
+                    <label>资产类型 *</label>
+                    <select name="type" required>
+                        <option value="server">服务器</option>
+                        <option value="database">数据库</option>
+                        <option value="application">应用系统</option>
+                        <option value="network">网络设备</option>
+                        <option value="endpoint">终端</option>
+                        <option value="cloud">云资源</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>IP 地址</label>
+                    <input type="text" name="ip" placeholder="192.168.1.100">
+                </div>
+                <div class="form-group">
+                    <label>MAC 地址</label>
+                    <input type="text" name="mac" placeholder="00:1A:2B:3C:4D:5E">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>操作系统</label>
+                    <input type="text" name="os" placeholder="CentOS 7.9">
+                </div>
+                <div class="form-group">
+                    <label>所属部门</label>
+                    <input type="text" name="department" placeholder="技术部">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>责任人</label>
+                    <input type="text" name="owner" placeholder="张三">
+                </div>
+                <div class="form-group">
+                    <label>重要性级别 *</label>
+                    <select name="criticality" required>
+                        <option value="critical">核心资产</option>
+                        <option value="high">重要资产</option>
+                        <option value="medium" selected>一般资产</option>
+                        <option value="low">边缘资产</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>标签 (逗号分隔)</label>
+                <input type="text" name="tags" placeholder="生产环境, 核心业务, PCI-DSS">
+            </div>
+            <div class="form-group">
+                <label>备注</label>
+                <textarea name="notes" rows="2" placeholder="资产描述或备注信息"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideAddAsset()">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let assets = [];
+
+document.addEventListener('DOMContentLoaded', loadAssets);
+
+async function loadAssets() {
+    assets = await fetch('/api/assets').then(r => r.json());
+    renderAssets(assets);
+    updateStats();
+}
+
+function renderAssets(data) {
+    document.getElementById('assets-list').innerHTML = data.map(a => `
+        <tr>
+            <td><input type="checkbox" value="${a.id}"></td>
+            <td>
+                <div class="asset-name">${a.name}</div>
+                <div class="asset-tags">${(a.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}</div>
+            </td>
+            <td><span class="badge ${a.type}">${getTypeName(a.type)}</span></td>
+            <td>${a.ip || '-'}</td>
+            <td>${a.owner || '-'}</td>
+            <td><span class="criticality ${a.criticality}">${getCriticalityName(a.criticality)}</span></td>
+            <td><div class="risk-score ${getRiskClass(a.risk_score)}">${a.risk_score || 0}</div></td>
+            <td><span class="status-dot ${a.status}"></span> ${getStatusName(a.status)}</td>
+            <td>
+                <button class="btn btn-sm btn-secondary" onclick="viewAsset('${a.id}')">详情</button>
+                <button class="btn btn-sm btn-secondary" onclick="scanAsset('${a.id}')">扫描</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateStats() {
+    document.getElementById('total-assets').textContent = assets.length;
+    document.getElementById('risk-assets').textContent = assets.filter(a => a.risk_score > 70).length;
+    document.getElementById('unpatched-assets').textContent = assets.filter(a => a.patch_pending).length;
+    document.getElementById('compliant-assets').textContent = assets.filter(a => a.compliant).length;
+    document.getElementById('discovered-assets').textContent = assets.filter(a => a.discovered_recently).length;
+}
+
+function filterAssets() {
+    const search = document.getElementById('asset-search').value.toLowerCase();
+    const type = document.getElementById('asset-type-filter').value;
+    const criticality = document.getElementById('asset-criticality-filter').value;
+    
+    let filtered = assets.filter(a => {
+        const matchSearch = !search || a.name.toLowerCase().includes(search) || (a.ip && a.ip.includes(search));
+        const matchType = !type || a.type === type;
+        const matchCriticality = !criticality || a.criticality === criticality;
+        return matchSearch && matchType && matchCriticality;
+    });
+    renderAssets(filtered);
+}
+
+function showAddAsset() { document.getElementById('asset-modal').style.display = 'flex'; }
+function hideAddAsset() { document.getElementById('asset-modal').style.display = 'none'; }
+
+async function addAsset(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = Object.fromEntries(new FormData(form));
+    data.tags = data.tags ? data.tags.split(',').map(t => t.trim()) : [];
+    await fetch('/api/assets', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+    hideAddAsset();
+    form.reset();
+    loadAssets();
+}
+
+async function scanAsset(id) {
+    showToast('正在扫描资产...');
+    await fetch(`/api/assets/${id}/scan`, { method: 'POST' });
+    showToast('扫描完成');
+    loadAssets();
+}
+
+function getTypeName(t) { return {server:'服务器',database:'数据库',application:'应用',network:'网络设备',endpoint:'终端',cloud:'云资源'}[t] || t; }
+function getCriticalityName(c) { return {critical:'核心',high:'重要',medium:'一般',low:'边缘'}[c] || c; }
+function getStatusName(s) { return {online:'在线',offline:'离线',unknown:'未知'}[s] || s; }
+function getRiskClass(score) { return score > 70 ? 'high' : score > 40 ? 'medium' : 'low'; }
+function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000); }
+</script>
+{% endblock %}

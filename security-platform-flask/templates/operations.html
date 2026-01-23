@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}安全运营 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>安全运营</h2>
+    <p>运营指标和资产状态</p>
+</div>
+
+<div class="grid grid-4" id="ops-stats">
+    <div class="card">
+        <div class="card-header"><span class="card-title">平均检测时间</span><span>🎯</span></div>
+        <div class="stat-value blue"><span id="mttd">--</span><span class="unit">分钟</span></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">平均修复时间</span><span>⏱️</span></div>
+        <div class="stat-value yellow"><span id="mttr">--</span><span class="unit">分钟</span></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">本月事件</span><span>📈</span></div>
+        <div class="stat-value red" id="incidents">--</div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">合规评分</span><span>✅</span></div>
+        <div class="stat-value green"><span id="compliance">--</span>%</div>
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <div class="card-header"><span class="card-title">资产健康状态</span></div>
+        <div id="assets-status"></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">补丁状态</span></div>
+        <div id="patch-status"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const ops = await fetch('/api/dashboard/operations').then(r => r.json());
+    document.getElementById('mttd').textContent = ops.mttd;
+    document.getElementById('mttr').textContent = ops.mttr;
+    document.getElementById('incidents').textContent = ops.incidents_this_month;
+    document.getElementById('compliance').textContent = ops.compliance_score;
+
+    document.getElementById('patch-status').innerHTML = `
+        <div class="status-row"><span>已更新</span><span class="green">${ops.patch_status.up_to_date}</span></div>
+        <div class="status-row"><span>待更新</span><span class="yellow">${ops.patch_status.pending}</span></div>
+        <div class="status-row"><span>紧急补丁</span><span class="red">${ops.patch_status.critical}</span></div>
+    `;
+
+    const assets = await fetch('/api/dashboard/assets').then(r => r.json());
+    const assetTypes = { servers: '服务器', endpoints: '终端', applications: '应用' };
+    document.getElementById('assets-status').innerHTML = Object.entries(assets).map(([type, data]) => `
+        <div class="asset-row">
+            <div class="asset-header"><span>${assetTypes[type]}</span><span>${data.total} 总计</span></div>
+            <div class="asset-bar">
+                <div class="bar-healthy" style="width: ${(data.healthy/data.total)*100}%"></div>
+                <div class="bar-warning" style="width: ${(data.warning/data.total)*100}%"></div>
+                <div class="bar-critical" style="width: ${(data.critical/data.total)*100}%"></div>
+            </div>
+            <div class="asset-legend">
+                <span class="green">● 健康 ${data.healthy}</span>
+                <span class="yellow">● 警告 ${data.warning}</span>
+                <span class="red">● 严重 ${data.critical}</span>
+            </div>
+        </div>
+    `).join('');
+});
+</script>
+{% endblock %}

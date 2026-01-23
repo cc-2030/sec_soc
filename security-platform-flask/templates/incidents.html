@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}事件响应 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>安全事件响应 (SOAR)</h2>
+    <p>安全编排、自动化与响应</p>
+</div>
+
+<!-- 事件统计 -->
+<div class="grid grid-5" style="margin-bottom: 20px;">
+    <div class="stat-card">
+        <div class="stat-icon red">🚨</div>
+        <div class="stat-info">
+            <div class="stat-num" id="active-incidents">0</div>
+            <div class="stat-label">活跃事件</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon yellow">⏳</div>
+        <div class="stat-info">
+            <div class="stat-num" id="pending-incidents">0</div>
+            <div class="stat-label">待处理</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon blue">🔍</div>
+        <div class="stat-info">
+            <div class="stat-num" id="investigating">0</div>
+            <div class="stat-label">调查中</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-info">
+            <div class="stat-num" id="resolved-today">0</div>
+            <div class="stat-label">今日关闭</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">⏱️</div>
+        <div class="stat-info">
+            <div class="stat-num" id="avg-mttr">--</div>
+            <div class="stat-label">平均MTTR</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-3">
+    <!-- 事件列表 -->
+    <div class="card" style="grid-column: span 2;">
+        <div class="card-header">
+            <span class="card-title">安全事件</span>
+            <div class="header-actions">
+                <select id="incident-filter" onchange="loadIncidents()">
+                    <option value="">所有状态</option>
+                    <option value="new">新建</option>
+                    <option value="triaging">分类中</option>
+                    <option value="investigating">调查中</option>
+                    <option value="containing">遏制中</option>
+                    <option value="eradicating">根除中</option>
+                    <option value="recovering">恢复中</option>
+                    <option value="closed">已关闭</option>
+                </select>
+                <button class="btn btn-primary btn-sm" onclick="showCreateIncident()">+ 创建事件</button>
+            </div>
+        </div>
+        <div id="incidents-list"></div>
+    </div>
+
+    <!-- 右侧面板 -->
+    <div>
+        <!-- 自动化剧本 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">🤖 自动化剧本 (Playbook)</span>
+            </div>
+            <div id="playbooks-list"></div>
+            <button class="btn btn-secondary btn-sm" style="margin-top: 12px; width: 100%;" onclick="showPlaybookEditor()">+ 创建剧本</button>
+        </div>
+
+        <!-- 最近活动 -->
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header"><span class="card-title">最近活动</span></div>
+            <div id="recent-activities"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建事件弹窗 -->
+<div id="incident-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>创建安全事件</h3>
+            <button class="modal-close" onclick="hideCreateIncident()">×</button>
+        </div>
+        <form onsubmit="createIncident(event)">
+            <div class="form-group">
+                <label>事件标题 *</label>
+                <input type="text" name="title" required placeholder="简要描述安全事件">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>严重级别 *</label>
+                    <select name="severity" required>
+                        <option value="critical">P1 - 严重</option>
+                        <option value="high">P2 - 高</option>
+                        <option value="medium" selected>P3 - 中</option>
+                        <option value="low">P4 - 低</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>事件类型 *</label>
+                    <select name="type" required>
+                        <option value="malware">恶意软件</option>
+                        <option value="phishing">钓鱼攻击</option>
+                        <option value="data_breach">数据泄露</option>
+                        <option value="unauthorized_access">未授权访问</option>
+                        <option value="ddos">DDoS攻击</option>
+                        <option value="insider_threat">内部威胁</option>
+                        <option value="other">其他</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>受影响资产</label>
+                <input type="text" name="affected_assets" placeholder="资产名称，逗号分隔">
+            </div>
+            <div class="form-group">
+                <label>事件描述</label>
+                <textarea name="description" rows="4" placeholder="详细描述事件情况、发现方式、初步影响评估等"></textarea>
+            </div>
+            <div class="form-group">
+                <label>指派给</label>
+                <select name="assignee">
+                    <option value="">未指派</option>
+                    <option value="soc_team">SOC 团队</option>
+                    <option value="ir_team">应急响应团队</option>
+                    <option value="security_admin">安全管理员</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="hideCreateIncident()">取消</button>
+                <button type="submit" class="btn btn-primary">创建事件</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 事件详情弹窗 -->
+<div id="incident-detail-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3 id="incident-detail-title">事件详情</h3>
+            <button class="modal-close" onclick="closeIncidentDetail()">×</button>
+        </div>
+        <div id="incident-detail-content"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let incidents = [];
+let playbooks = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadIncidents();
+    await loadPlaybooks();
+    loadRecentActivities();
+});
+
+async function loadIncidents() {
+    const status = document.getElementById('incident-filter').value;
+    const params = status ? `?status=${status}` : '';
+    incidents = await fetch('/api/incidents' + params).then(r => r.json());
+    renderIncidents();
+    updateIncidentStats();
+}
+
+function renderIncidents() {
+    document.getElementById('incidents-list').innerHTML = incidents.map(i => `
+        <div class="incident-item ${i.severity}" onclick="showIncidentDetail('${i.id}')">
+            <div class="incident-header">
+                <span class="incident-id">#${i.id.slice(0,8)}</span>
+                <span class="badge ${i.severity}">${getSeverityName(i.severity)}</span>
+                <span class="badge ${i.status}">${getStatusName(i.status)}</span>
+            </div>
+            <div class="incident-title">${i.title}</div>
+            <div class="incident-meta">
+                <span>📁 ${getTypeName(i.type)}</span>
+                <span>👤 ${i.assignee || '未指派'}</span>
+                <span>🕐 ${formatTime(i.created_at)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateIncidentStats() {
+    document.getElementById('active-incidents').textContent = incidents.filter(i => !['closed'].includes(i.status)).length;
+    document.getElementById('pending-incidents').textContent = incidents.filter(i => i.status === 'new').length;
+    document.getElementById('investigating').textContent = incidents.filter(i => i.status === 'investigating').length;
+    document.getElementById('resolved-today').textContent = incidents.filter(i => i.status === 'closed' && isToday(i.closed_at)).length;
+}
+
+async function loadPlaybooks() {
+    playbooks = await fetch('/api/playbooks').then(r => r.json());
+    document.getElementById('playbooks-list').innerHTML = playbooks.map(p => `
+        <div class="playbook-item">
+            <div class="playbook-info">
+                <div class="playbook-name">${p.name}</div>
+                <div class="playbook-trigger">触发: ${p.trigger_type}</div>
+            </div>
+            <div class="playbook-actions">
+                <button class="btn btn-sm btn-primary" onclick="runPlaybook('${p.id}')">▶</button>
+                <span class="status-dot ${p.enabled ? 'active' : 'inactive'}"></span>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadRecentActivities() {
+    const activities = await fetch('/api/incidents/activities').then(r => r.json());
+    document.getElementById('recent-activities').innerHTML = activities.map(a => `
+        <div class="activity-item">
+            <div class="activity-icon">${getActivityIcon(a.type)}</div>
+            <div class="activity-content">
+                <div class="activity-text">${a.description}</div>
+                <div class="activity-time">${formatTime(a.timestamp)}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function showCreateIncident() { document.getElementById('incident-modal').style.display = 'flex'; }
+function hideCreateIncident() { document.getElementById('incident-modal').style.display = 'none'; }
+
+async function createIncident(e) {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    data.affected_assets = data.affected_assets ? data.affected_assets.split(',').map(a => a.trim()) : [];
+    await fetch('/api/incidents', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+    hideCreateIncident();
+    e.target.reset();
+    loadIncidents();
+    showToast('事件已创建');
+}
+
+async function showIncidentDetail(id) {
+    const i = await fetch(`/api/incidents/${id}`).then(r => r.json());
+    document.getElementById('incident-detail-title').textContent = `#${i.id.slice(0,8)} - ${i.title}`;
+    document.getElementById('incident-detail-content').innerHTML = `
+        <div class="incident-detail-grid">
+            <div class="detail-main">
+                <div class="detail-section">
+                    <h4>事件信息</h4>
+                    <div class="detail-row"><span>状态:</span><span class="badge ${i.status}">${getStatusName(i.status)}</span></div>
+                    <div class="detail-row"><span>严重级别:</span><span class="badge ${i.severity}">${getSeverityName(i.severity)}</span></div>
+                    <div class="detail-row"><span>类型:</span><span>${getTypeName(i.type)}</span></div>
+                    <div class="detail-row"><span>指派给:</span><span>${i.assignee || '未指派'}</span></div>
+                    <div class="detail-row"><span>创建时间:</span><span>${formatTime(i.created_at)}</span></div>
+                </div>
+                <div class="detail-section">
+                    <h4>描述</h4>
+                    <p>${i.description || '无描述'}</p>
+                </div>
+                <div class="detail-section">
+                    <h4>受影响资产</h4>
+                    <div class="tags">${(i.affected_assets || []).map(a => `<span class="tag">${a}</span>`).join('') || '无'}</div>
+                </div>
+                <div class="detail-section">
+                    <h4>时间线</h4>
+                    <div class="timeline" id="incident-timeline"></div>
+                </div>
+            </div>
+            <div class="detail-sidebar">
+                <h4>快速操作</h4>
+                <div class="quick-actions">
+                    <button class="btn btn-secondary" onclick="updateIncidentStatus('${i.id}', 'investigating')">🔍 开始调查</button>
+                    <button class="btn btn-secondary" onclick="updateIncidentStatus('${i.id}', 'containing')">🛡️ 遏制威胁</button>
+                    <button class="btn btn-secondary" onclick="updateIncidentStatus('${i.id}', 'eradicating')">🧹 根除威胁</button>
+                    <button class="btn btn-secondary" onclick="updateIncidentStatus('${i.id}', 'recovering')">🔄 恢复系统</button>
+                    <button class="btn btn-primary" onclick="updateIncidentStatus('${i.id}', 'closed')">✅ 关闭事件</button>
+                </div>
+                <h4 style="margin-top: 20px;">运行剧本</h4>
+                <select id="playbook-select" class="form-control">
+                    ${playbooks.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                </select>
+                <button class="btn btn-secondary" style="margin-top: 8px; width: 100%;" onclick="runPlaybookForIncident('${i.id}')">▶ 执行</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('incident-detail-modal').style.display = 'flex';
+    loadIncidentTimeline(id);
+}
+
+async function loadIncidentTimeline(id) {
+    const timeline = await fetch(`/api/incidents/${id}/timeline`).then(r => r.json());
+    document.getElementById('incident-timeline').innerHTML = timeline.map(t => `
+        <div class="timeline-item">
+            <div class="timeline-dot ${t.type}"></div>
+            <div class="timeline-content">
+                <div class="timeline-action">${t.action}</div>
+                <div class="timeline-time">${formatTime(t.timestamp)} - ${t.user || 'System'}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function closeIncidentDetail() { document.getElementById('incident-detail-modal').style.display = 'none'; }
+
+async function updateIncidentStatus(id, status) {
+    await fetch(`/api/incidents/${id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ status }) });
+    closeIncidentDetail();
+    loadIncidents();
+    showToast('状态已更新');
+}
+
+async function runPlaybook(id) {
+    showToast('剧本执行中...');
+    await fetch(`/api/playbooks/${id}/run`, { method: 'POST' });
+    showToast('剧本执行完成');
+}
+
+function getSeverityName(s) { return {critical:'P1-严重',high:'P2-高',medium:'P3-中',low:'P4-低'}[s] || s; }
+function getStatusName(s) { return {new:'新建',triaging:'分类中',investigating:'调查中',containing:'遏制中',eradicating:'根除中',recovering:'恢复中',closed:'已关闭'}[s] || s; }
+function getTypeName(t) { return {malware:'恶意软件',phishing:'钓鱼攻击',data_breach:'数据泄露',unauthorized_access:'未授权访问',ddos:'DDoS',insider_threat:'内部威胁',other:'其他'}[t] || t; }
+function getActivityIcon(t) { return {created:'📝',status_change:'🔄',comment:'💬',playbook:'🤖',alert:'🚨'}[t] || '📌'; }
+function formatTime(t) { return new Date(t).toLocaleString('zh-CN'); }
+function isToday(t) { return t && new Date(t).toDateString() === new Date().toDateString(); }
+function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000); }
+</script>
+{% endblock %}

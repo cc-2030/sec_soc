@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}合规管理 - 安全运营平台{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>合规管理</h2>
+    <p>等保、ISO27001、GDPR 等合规检查与管理</p>
+</div>
+
+<div class="grid grid-4" style="margin-bottom: 20px;">
+    <div class="card compliance-score"><div class="score-circle"><span id="overall-score">85</span>%</div><div class="score-label">整体合规率</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">检查项</span></div><div class="stat-value blue" id="total-checks">0</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">已通过</span></div><div class="stat-value green" id="passed-checks">0</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">待整改</span></div><div class="stat-value red" id="failed-checks">0</div></div>
+</div>
+
+<div class="grid grid-3">
+    <div class="card" style="grid-column: span 2;">
+        <div class="card-header">
+            <span class="card-title">合规框架</span>
+            <button class="btn btn-primary btn-sm" onclick="runComplianceCheck()">🔍 执行检查</button>
+        </div>
+        <div id="frameworks-list"></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><span class="card-title">待整改项</span></div>
+        <div id="remediation-list"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => { loadFrameworks(); loadRemediations(); });
+
+async function loadFrameworks() {
+    const frameworks = await fetch('/api/compliance/frameworks').then(r => r.json());
+    document.getElementById('frameworks-list').innerHTML = frameworks.map(f => `
+        <div class="framework-item">
+            <div class="framework-header">
+                <div class="framework-name">${f.name}</div>
+                <div class="framework-score ${getScoreClass(f.score)}">${f.score}%</div>
+            </div>
+            <div class="framework-bar"><div style="width: ${f.score}%" class="${getScoreClass(f.score)}"></div></div>
+            <div class="framework-meta">
+                <span>✅ ${f.passed}/${f.total} 通过</span>
+                <span>📅 上次检查: ${f.last_check}</span>
+            </div>
+        </div>
+    `).join('');
+    updateStats(frameworks);
+}
+
+function updateStats(frameworks) {
+    const total = frameworks.reduce((s, f) => s + f.total, 0);
+    const passed = frameworks.reduce((s, f) => s + f.passed, 0);
+    document.getElementById('total-checks').textContent = total;
+    document.getElementById('passed-checks').textContent = passed;
+    document.getElementById('failed-checks').textContent = total - passed;
+    document.getElementById('overall-score').textContent = Math.round((passed / total) * 100);
+}
+
+async function loadRemediations() {
+    const items = await fetch('/api/compliance/remediations').then(r => r.json());
+    document.getElementById('remediation-list').innerHTML = items.map(i => `
+        <div class="remediation-item">
+            <div class="remediation-title">${i.title}</div>
+            <div class="remediation-meta"><span class="badge ${i.priority}">${i.priority}</span> ${i.framework}</div>
+        </div>
+    `).join('');
+}
+
+function getScoreClass(s) { return s >= 80 ? 'good' : s >= 60 ? 'warning' : 'danger'; }
+async function runComplianceCheck() { showToast('合规检查已启动...'); }
+function showToast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000); }
+</script>
+{% endblock %}
