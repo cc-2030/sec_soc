@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+{% block title %}链接管理 - 个人工作台{% endblock %}
+
+{% block content %}
+<style>
+    /* 整体布局 */
+    .links-layout {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 0;
+        min-height: calc(100vh - 80px);
+        margin: -32px -24px;
+    }
+    
+    /* 左侧分类导航 */
+    .links-sidebar {
+        background: rgba(255,255,255,0.06);
+        border-right: 1px solid rgba(255,255,255,0.08);
+        padding: 24px 0;
+        position: sticky;
+        top: 57px;
+        height: calc(100vh - 57px);
+        overflow-y: auto;
+    }
+    .sidebar-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255,255,255,0.6);
+        padding: 0 20px;
+        margin-bottom: 12px;
+    }
+    .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 20px;
+        font-size: 13px;
+        color: rgba(255,255,255,0.7);
+        text-decoration: none;
+        transition: all 0.15s;
+        border-left: 3px solid transparent;
+    }
+    .sidebar-item:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+    .sidebar-item.active {
+        color: #64b5f6;
+        background: rgba(100,181,246,0.1);
+        border-left-color: #64b5f6;
+        font-weight: 500;
+    }
+    .sidebar-item-icon { font-size: 15px; width: 20px; text-align: center; }
+    
+    /* 右侧主内容 */
+    .links-main {
+        padding: 24px 32px;
+        overflow-y: auto;
+    }
+    
+    /* 顶部标签栏 */
+    .links-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 28px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        padding-bottom: 16px;
+    }
+    .links-tabs {
+        display: flex;
+        gap: 4px;
+    }
+    .links-tab {
+        padding: 8px 18px;
+        font-size: 13px;
+        color: rgba(255,255,255,0.7);
+        text-decoration: none;
+        border-radius: 20px;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .links-tab:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+    .links-tab.active { background: rgba(100,181,246,0.2); color: #64b5f6; }
+    .links-topbar-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+    .links-topbar-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 13px;
+        color: rgba(255,255,255,0.7);
+        background: none;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background 0.15s;
+        text-decoration: none;
+    }
+    .links-topbar-btn:hover { background: rgba(255,255,255,0.08); }
+</style>
+<style>
+    /* 分类区块 */
+    .link-section {
+        margin-bottom: 32px;
+    }
+    .link-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+    .link-section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 15px;
+        font-weight: 500;
+        color: rgba(255,255,255,0.85);
+    }
+    .link-section-title::before {
+        content: '';
+        display: inline-block;
+        width: 3px;
+        height: 16px;
+        background: #64b5f6;
+        border-radius: 2px;
+    }
+    .link-section-action {
+        font-size: 12px;
+        color: rgba(255,255,255,0.6);
+        text-decoration: none;
+        cursor: pointer;
+        padding: 4px 10px;
+        border-radius: 4px;
+        transition: all 0.15s;
+    }
+    .link-section-action:hover { background: rgba(255,255,255,0.08); color: #64b5f6; }
+    
+    /* 链接网格 - 横向列表风格 */
+    .link-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px 16px;
+    }
+    .link-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: rgba(255,255,255,0.7);
+        transition: all 0.15s;
+        position: relative;
+        min-width: 0;
+        background: rgba(255,255,255,0.04);
+    }
+    .link-item:hover { background: rgba(255,255,255,0.08); }
+    .link-item-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+    .link-item-icon img {
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+    }
+    .link-item-icon .fallback {
+        display: none;
+        font-size: 16px;
+        color: rgba(255,255,255,0.6);
+    }
+    .link-item-name {
+        font-size: 13px;
+        color: rgba(255,255,255,0.7);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+    }
+    .link-item:hover .link-item-name { color: rgba(255,255,255,0.9); }
+    
+    /* 删除按钮 */
+    .link-item .link-delete {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #ea4335;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+    .link-item:hover .link-delete { opacity: 0.7; }
+    .link-item .link-delete:hover { opacity: 1; }
+    
+    /* 空状态 */
+    .links-empty {
+        text-align: center;
+        padding: 80px 20px;
+        color: rgba(255,255,255,0.5);
+    }
+    .links-empty-icon { font-size: 56px; margin-bottom: 16px; color: rgba(255,255,255,0.3); }
+    .links-empty-text { font-size: 14px; color: rgba(255,255,255,0.5); }
+</style>
+<style>
+    /* 添加弹窗 */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+        background: white;
+        border-radius: 12px;
+        padding: 28px;
+        width: 90%;
+        max-width: 420px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    .modal-box-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #202124;
+        margin-bottom: 20px;
+    }
+    .modal-box .form-input {
+        width: 100%;
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        border: 1px solid #dadce0;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+    }
+    .modal-box .form-input:focus { outline: none; border-color: #1a73e8; }
+    .modal-box-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    .modal-box-actions .btn { border-radius: 8px; padding: 10px 24px; }
+    
+    /* 筛选提示 */
+    .filter-hint {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        color: #5f6368;
+    }
+    .filter-hint .tag { margin: 0 4px; }
+    .filter-hint a { color: #1a73e8; text-decoration: none; }
+    .filter-hint a:hover { text-decoration: underline; }
+    
+    /* 标签云 */
+    .sidebar-tags {
+        padding: 16px 20px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        margin-top: 12px;
+    }
+    .sidebar-tags-title {
+        font-size: 11px;
+        color: rgba(255,255,255,0.4);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        letter-spacing: 0.5px;
+    }
+    .sidebar-tag {
+        display: inline-block;
+        padding: 4px 10px;
+        font-size: 11px;
+        color: rgba(255,255,255,0.7);
+        background: rgba(255,255,255,0.08);
+        border-radius: 12px;
+        text-decoration: none;
+        margin: 0 4px 6px 0;
+        transition: all 0.15s;
+    }
+    .sidebar-tag:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9); }
+    .sidebar-tag.active { background: rgba(100,181,246,0.2); color: #64b5f6; }
+    
+    @media (max-width: 1024px) {
+        .link-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+        .links-layout { grid-template-columns: 1fr; }
+        .links-sidebar { display: none; }
+        .link-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
+
+<div class="links-layout">
+    <!-- 左侧分类导航 -->
+    <aside class="links-sidebar">
+        <div class="sidebar-title">导航分类</div>
+        <a href="/links" class="sidebar-item {% if not category_filter and not tag_filter %}active{% endif %}">
+            <span class="sidebar-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+            <span>全部链接</span>
+        </a>
+        {% for cat in categories %}
+        <a href="/links?category={{ cat }}" class="sidebar-item {% if category_filter == cat %}active{% endif %}">
+            <span class="sidebar-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+            <span>{{ cat }}</span>
+        </a>
+        {% endfor %}
+        
+        {% if all_tags %}
+        <div class="sidebar-tags">
+            <div class="sidebar-tags-title">标签</div>
+            {% for tag in all_tags %}
+            <a href="/links?tag={{ tag }}" class="sidebar-tag {% if tag_filter == tag %}active{% endif %}">{{ tag }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </aside>
+    
+    <!-- 右侧主内容 -->
+    <div class="links-main">
+        <!-- 顶部标签栏 -->
+        <div class="links-topbar">
+            <div class="links-tabs">
+                <a href="/links" class="links-tab {% if not category_filter and not tag_filter %}active{% endif %}">全部</a>
+                {% for cat in categories %}
+                <a href="/links?category={{ cat }}" class="links-tab {% if category_filter == cat %}active{% endif %}">{{ cat }}</a>
+                {% endfor %}
+            </div>
+            <div class="links-topbar-actions">
+                <span class="links-topbar-btn" onclick="document.getElementById('addModal').classList.add('show')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加</span>
+                <span class="links-topbar-btn" id="toggleManage" onclick="toggleManageMode()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 管理</span>
+            </div>
+        </div>
+        
+        {% if tag_filter %}
+        <div class="filter-hint">
+            <span>当前筛选:</span>
+            <span class="tag tag-blue">#{{ tag_filter }}</span>
+            <a href="/links">清除</a>
+        </div>
+        {% endif %}
+        
+        <!-- 链接内容 -->
+        {% if links_grouped %}
+            {% for cat, cat_links in links_grouped.items() %}
+            {% if not category_filter or category_filter == cat %}
+            <div class="link-section" id="section-{{ loop.index }}">
+                <div class="link-section-header">
+                    <div class="link-section-title">{{ cat }}</div>
+                    <span class="link-section-action" onclick="openAddModal('{{ cat }}')">添加网站</span>
+                </div>
+                <div class="link-grid">
+                    {% for link in cat_links %}
+                    {% if not tag_filter or tag_filter in link.tags %}
+                    <div class="link-item">
+                        <a href="{{ link.url }}" target="_blank" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;flex:1;min-width:0;">
+                            <div class="link-item-icon">
+                                {% set domain = link.url.replace('https://','').replace('http://','').split('/')[0] %}
+                                <img src="/favicon/{{ domain }}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                                <span class="fallback" style="display:none;width:100%;height:100%;align-items:center;justify-content:center;">{{ link.icon or link.name[0] }}</span>
+                            </div>
+                            <span class="link-item-name" title="{{ link.name }}">{{ link.name }}</span>
+                        </a>
+                        <form action="/link/delete/{{ link.id }}" method="POST" class="manage-action" style="display:none;">
+                            <button type="submit" onclick="return confirm('确定删除「{{ link.name }}」?')" class="link-delete" style="opacity:1;position:static;">×</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="links-empty">
+                <div class="links-empty-icon"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#dadce0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+                <div class="links-empty-text">暂无链接，点击上方「添加」开始收藏</div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 添加链接弹窗 -->
+<div id="addModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('show')">
+    <div class="modal-box">
+        <div class="modal-box-title">添加链接</div>
+        <form action="/link/add" method="POST">
+            <input type="text" name="name" placeholder="网站名称" required class="form-input">
+            <input type="url" name="url" placeholder="https://..." required class="form-input">
+            <input type="text" name="category" id="addCategory" placeholder="分类" list="cat-list" class="form-input">
+            <datalist id="cat-list">{% for cat in categories %}<option value="{{ cat }}">{% endfor %}</datalist>
+            <input type="text" name="tags" placeholder="标签，用逗号分隔（可选）" class="form-input">
+            <input type="text" name="icon" placeholder="图标 emoji（可选）" class="form-input" maxlength="2">
+            <div class="modal-box-actions">
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('addModal').classList.remove('show')">取消</button>
+                <button type="submit" class="btn btn-primary">添加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let manageMode = false;
+
+function toggleManageMode() {
+    manageMode = !manageMode;
+    const btn = document.getElementById('toggleManage');
+    btn.style.color = manageMode ? '#1a73e8' : '';
+    btn.style.background = manageMode ? '#e8f0fe' : '';
+    document.querySelectorAll('.manage-action').forEach(el => {
+        el.style.display = manageMode ? 'inline' : 'none';
+    });
+}
+
+function openAddModal(category) {
+    document.getElementById('addCategory').value = category || '';
+    document.getElementById('addModal').classList.add('show');
+}
+</script>
+{% endblock %}

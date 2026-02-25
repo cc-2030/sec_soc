@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - Personal Workbench</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #121212;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .login-container {
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #64b5f6;
+            font-size: 1.5rem;
+        }
+        
+        .tab-container {
+            display: flex;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 0.75rem;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab.active {
+            color: #64b5f6;
+            border-bottom-color: #64b5f6;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #b0b0b0;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background: #252525;
+            color: #e0e0e0;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #64b5f6;
+            box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.1);
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .btn {
+            padding: 0.75rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #64b5f6;
+            color: #121212;
+        }
+        
+        .btn-primary:hover {
+            background: #42a5f5;
+            transform: translateY(-1px);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .full-width {
+            width: 100%;
+        }
+        
+        .register-link {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .register-link a {
+            color: #64b5f6;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .register-link a:hover {
+            color: #42a5f5;
+            text-decoration: underline;
+        }
+        
+        .flash-messages {
+            margin-bottom: 1.5rem;
+        }
+        
+        .flash {
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+        }
+        
+        .flash.success {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            color: #81c784;
+        }
+        
+        .flash.error {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            color: #e57373;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Personal Workbench</h2>
+        
+        <!-- 消息闪现 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="tab-container">
+            <div class="tab active" data-tab="password">账号密码登录</div>
+            <div class="tab" data-tab="phone">手机号登录</div>
+        </div>
+        
+        <!-- 账号密码登录表单 -->
+        <form id="password-form" method="POST">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary full-width">登录</button>
+        </form>
+        
+        <!-- 手机号登录表单 -->
+        <form id="phone-form" method="POST" style="display: none;">
+            <div class="form-group">
+                <label for="phone">手机号码</label>
+                <input type="tel" id="phone" name="phone" placeholder="请输入11位手机号" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="code">验证码</label>
+                    <input type="text" id="code" name="code" placeholder="请输入6位验证码" required>
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button type="button" class="btn btn-outline" id="send-code-btn">获取验证码</button>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary full-width">登录</button>
+        </form>
+        
+        <div class="register-link">
+            还没有账号？ <a href="{{ url_for('register') }}">立即注册</a>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 标签切换
+            const tabs = document.querySelectorAll('.tab');
+            const passwordForm = document.getElementById('password-form');
+            const phoneForm = document.getElementById('phone-form');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // 移除所有标签的active类
+                    tabs.forEach(t => t.classList.remove('active'));
+                    // 添加当前标签的active类
+                    this.classList.add('active');
+                    
+                    // 显示对应的表单
+                    const tabName = this.dataset.tab;
+                    if (tabName === 'password') {
+                        passwordForm.style.display = 'block';
+                        phoneForm.style.display = 'none';
+                    } else {
+                        passwordForm.style.display = 'none';
+                        phoneForm.style.display = 'block';
+                    }
+                });
+            });
+            
+            // 发送验证码
+            const sendCodeBtn = document.getElementById('send-code-btn');
+            let countdown = 0;
+            
+            sendCodeBtn.addEventListener('click', function() {
+                const phone = document.getElementById('phone').value.trim();
+                
+                // 验证手机号格式
+                if (!phone || phone.length !== 11 || !/^1[3-9]\d{9}$/.test(phone)) {
+                    alert('请输入正确的手机号');
+                    return;
+                }
+                
+                // 开始倒计时
+                if (countdown === 0) {
+                    countdown = 60;
+                    sendCodeBtn.disabled = true;
+                    sendCodeBtn.textContent = `${countdown}秒后重发`;
+                    
+                    const timer = setInterval(() => {
+                        countdown--;
+                        sendCodeBtn.textContent = `${countdown}秒后重发`;
+                        
+                        if (countdown === 0) {
+                            clearInterval(timer);
+                            sendCodeBtn.disabled = false;
+                            sendCodeBtn.textContent = '获取验证码';
+                        }
+                    }, 1000);
+                    
+                    // 发送验证码请求
+                    fetch('/send_code', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: `phone=${encodeURIComponent(phone)}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'error') {
+                            alert(data.message);
+                            // 重置倒计时
+                            clearInterval(timer);
+                            countdown = 0;
+                            sendCodeBtn.disabled = false;
+                            sendCodeBtn.textContent = '获取验证码';
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('发送验证码失败:', error);
+                        alert('发送验证码失败，请稍后重试');
+                        // 重置倒计时
+                        clearInterval(timer);
+                        countdown = 0;
+                        sendCodeBtn.disabled = false;
+                        sendCodeBtn.textContent = '获取验证码';
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

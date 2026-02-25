@@ -33,7 +33,7 @@ class LinkManager:
         """Validate URL format (must start with http:// or https://)."""
         return bool(LinkManager.URL_PATTERN.match(url))
     
-    def add_link(self, name: str, url: str, category: str = "", tags: str = "", icon: str = "", user_id: str = "") -> Link:
+    def add_link(self, name: str, url: str, category: str = "", tags: str = "", icon: str = "") -> Link:
         """Add a new link with validation."""
         if not name or not name.strip():
             raise ValueError("Link name cannot be empty")
@@ -41,15 +41,10 @@ class LinkManager:
         if not self.validate_url(url):
             raise ValueError("Invalid URL format")
         
-        # Parse tags from comma or semicolon separated string
-        tag_list = []
-        if tags:
-            # Replace semicolons with commas first, then split
-            normalized_tags = tags.replace(';', ',')
-            tag_list = [t.strip() for t in normalized_tags.split(',') if t.strip()]
+        # Parse tags from comma-separated string
+        tag_list = [t.strip() for t in tags.split(',') if t.strip()] if tags else []
         
         link = Link(
-            user_id=user_id,
             name=name.strip(),
             url=url,
             category=category.strip(),
@@ -85,12 +80,7 @@ class LinkManager:
         
         if "tags" in kwargs:
             tags = kwargs["tags"]
-            if tags:
-                # Replace semicolons with commas first, then split
-                normalized_tags = tags.replace(';', ',')
-                link.tags = [t.strip() for t in normalized_tags.split(',') if t.strip()]
-            else:
-                link.tags = []
+            link.tags = [t.strip() for t in tags.split(',') if t.strip()] if tags else []
         
         if "icon" in kwargs:
             link.icon = kwargs["icon"].strip()
@@ -107,48 +97,39 @@ class LinkManager:
         self._save_links()
         return True
     
-    def get_all_links(self, user_id: str = "") -> List[Link]:
-        """Get all links, optionally filtered by user_id."""
-        if user_id:
-            return [l for l in self._links.values() if l.user_id == user_id]
+    def get_all_links(self) -> List[Link]:
+        """Get all links."""
         return list(self._links.values())
     
-    def get_links_by_category(self, category: str, user_id: str = "") -> List[Link]:
+    def get_links_by_category(self, category: str) -> List[Link]:
         """Get links by category."""
         if not category:
-            return self.get_all_links(user_id=user_id)
-        if user_id:
-            return [l for l in self._links.values() if l.category == category and l.user_id == user_id]
+            return self.get_all_links()
         return [l for l in self._links.values() if l.category == category]
     
-    def get_links_by_tag(self, tag: str, user_id: str = "") -> List[Link]:
+    def get_links_by_tag(self, tag: str) -> List[Link]:
         """Get links by tag."""
-        if user_id:
-            return [l for l in self._links.values() if tag in l.tags and l.user_id == user_id]
         return [l for l in self._links.values() if tag in l.tags]
     
-    def get_categories(self, user_id: str = "") -> List[str]:
+    def get_categories(self) -> List[str]:
         """Get all unique categories."""
         categories = set()
         for link in self._links.values():
-            if (not user_id or link.user_id == user_id) and link.category:
+            if link.category:
                 categories.add(link.category)
         return sorted(categories)
     
-    def get_all_tags(self, user_id: str = "") -> List[str]:
+    def get_all_tags(self) -> List[str]:
         """Get all unique tags."""
         tags = set()
         for link in self._links.values():
-            if not user_id or link.user_id == user_id:
-                tags.update(link.tags)
+            tags.update(link.tags)
         return sorted(tags)
     
-    def get_links_grouped_by_category(self, user_id: str = "") -> dict:
+    def get_links_grouped_by_category(self) -> dict:
         """Get links grouped by category."""
         grouped = {}
         for link in self._links.values():
-            if user_id and link.user_id != user_id:
-                continue
             cat = link.category or "未分类"
             if cat not in grouped:
                 grouped[cat] = []

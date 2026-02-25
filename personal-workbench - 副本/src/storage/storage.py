@@ -22,7 +22,6 @@ class Storage:
         """Create a new empty storage file."""
         data = {
             "version": "1.0",
-            "users": [],
             "tasks": [],
             "links": []
         }
@@ -81,38 +80,3 @@ class Storage:
         data = self.load()
         data["links"] = links
         return self.save(data)
-    
-    def get_users(self) -> List[dict]:
-        """Get all users from storage."""
-        data = self.load()
-        return data.get("users", [])
-    
-    def save_users(self, users: List[dict]) -> bool:
-        """Save users to storage."""
-        data = self.load()
-        data["users"] = users
-        return self.save(data)
-    
-    def get_user_by_id(self, user_id: str) -> dict:
-        """Get user by ID."""
-        users = self.get_users()
-        for user in users:
-            if user["id"] == user_id:
-                return user
-        return None
-    
-    def get_user_by_username(self, username: str) -> dict:
-        """Get user by username."""
-        users = self.get_users()
-        for user in users:
-            if user["username"] == username:
-                return user
-        return None
-    
-    def get_user_by_email(self, email: str) -> dict:
-        """Get user by email."""
-        users = self.get_users()
-        for user in users:
-            if user.get("email") == email:
-                return user
-        return None

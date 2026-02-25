@@ -30,13 +30,12 @@ class TaskManager:
         self.storage.save_tasks(task_dicts)
     
     def create_task(self, title: str, description: str = "", due_date: Optional[datetime] = None,
-                    category: str = "", priority: str = "medium", user_id: str = "") -> Task:
+                    category: str = "", priority: str = "medium") -> Task:
         """Create a new task with validation."""
         if not title or not title.strip():
             raise ValueError("Task title cannot be empty")
         
         task = Task(
-            user_id=user_id,
             title=title.strip(),
             description=description,
             category=category.strip(),
@@ -108,13 +107,10 @@ class TaskManager:
         self._save_tasks()
         return task
     
-    def get_all_tasks(self, user_id: str = "") -> List[Task]:
-        """Get all tasks, optionally filtered by user_id."""
+    def get_all_tasks(self) -> List[Task]:
+        """Get all tasks."""
         for task in self._tasks.values():
             task.check_and_update_overdue()
-        
-        if user_id:
-            return [t for t in self._tasks.values() if t.user_id == user_id]
         return list(self._tasks.values())
     
     def get_tasks_paginated(self, page: int = 1, per_page: int = 20, 
@@ -123,10 +119,9 @@ class TaskManager:
                            priority: Optional[TaskPriority] = None,
                            search: str = "",
                            sort_by: str = "created_at",
-                           sort_order: str = "desc",
-                           user_id: str = "") -> Tuple[List[Task], int, int]:
+                           sort_order: str = "desc") -> Tuple[List[Task], int, int]:
         """Get tasks with pagination, filtering, and sorting."""
-        tasks = self.get_all_tasks(user_id=user_id)
+        tasks = self.get_all_tasks()
         
         # Filter by status
         if status:
@@ -164,29 +159,29 @@ class TaskManager:
         
         return tasks[start:end], total, total_pages
     
-    def get_categories(self, user_id: str = "") -> List[str]:
+    def get_categories(self) -> List[str]:
         """Get all unique categories."""
         categories = set()
         for task in self._tasks.values():
-            if task.category and (not user_id or task.user_id == user_id):
+            if task.category:
                 categories.add(task.category)
         return sorted(categories)
     
-    def get_tasks_by_status(self, status: TaskStatus, user_id: str = "") -> List[Task]:
+    def get_tasks_by_status(self, status: TaskStatus) -> List[Task]:
         """Get tasks by status."""
-        return [t for t in self.get_all_tasks(user_id=user_id) if t.status == status]
+        return [t for t in self.get_all_tasks() if t.status == status]
     
-    def get_new_tasks(self, user_id: str = "") -> List[Task]:
-        return self.get_tasks_by_status(TaskStatus.NEW, user_id=user_id)
+    def get_new_tasks(self) -> List[Task]:
+        return self.get_tasks_by_status(TaskStatus.NEW)
     
-    def get_completed_tasks(self, user_id: str = "") -> List[Task]:
-        return self.get_tasks_by_status(TaskStatus.COMPLETED, user_id=user_id)
+    def get_completed_tasks(self) -> List[Task]:
+        return self.get_tasks_by_status(TaskStatus.COMPLETED)
     
-    def get_overdue_tasks(self, user_id: str = "") -> List[Task]:
-        return self.get_tasks_by_status(TaskStatus.OVERDUE, user_id=user_id)
+    def get_overdue_tasks(self) -> List[Task]:
+        return self.get_tasks_by_status(TaskStatus.OVERDUE)
     
-    def get_ignored_tasks(self, user_id: str = "") -> List[Task]:
-        return self.get_tasks_by_status(TaskStatus.IGNORED, user_id=user_id)
+    def get_ignored_tasks(self) -> List[Task]:
+        return self.get_tasks_by_status(TaskStatus.IGNORED)
     
     def get_task_by_id(self, task_id: str) -> Optional[Task]:
         return self._tasks.get(task_id)

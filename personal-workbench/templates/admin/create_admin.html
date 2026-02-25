@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}创建管理员账号 - 管理员后台{% endblock %}
+
+{% block content %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.8);
+        font-weight: 500;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #e0e0e0;
+        font-size: 14px;
+        transition: border-color 0.3s ease;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #64b5f6;
+        box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.1);
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        margin-top: 30px;
+    }
+    
+    .btn {
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: none;
+    }
+    
+    .btn-primary {
+        background: #64b5f6;
+        color: #121212;
+    }
+    
+    .btn-primary:hover {
+        background: #42a5f5;
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline {
+        background: transparent;
+        color: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .btn-outline:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+</style>
+
+<div class="form-container">
+    <h1 class="page-title">创建管理员账号</h1>
+    
+    <!-- 消息闪现 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages" style="margin-bottom: 20px;">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}" style="padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px;">
+                        {% if category == 'success' %}
+                            <span style="background: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3); color: #81c784;">{{ message }}</span>
+                        {% elif category == 'error' %}
+                            <span style="background: rgba(244, 67, 54, 0.1); border: 1px solid rgba(244, 67, 54, 0.3); color: #e57373;">{{ message }}</span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <div class="card">
+        <div class="card-title">管理员账号信息</div>
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">用户名</label>
+                <input type="text" id="username" name="username" placeholder="请输入用户名" required>
+            </div>
+            <div class="form-group">
+                <label for="email">邮箱</label>
+                <input type="email" id="email" name="email" placeholder="请输入邮箱（可选）">
+            </div>
+            <div class="form-group">
+                <label for="phone">手机号</label>
+                <input type="tel" id="phone" name="phone" placeholder="请输入手机号（可选）">
+            </div>
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input type="password" id="password" name="password" placeholder="请输入至少6位密码" required>
+            </div>
+            <div class="form-actions">
+                <a href="{{ url_for('admin_users') }}" class="btn btn-outline">取消</a>
+                <button type="submit" class="btn btn-primary">创建</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

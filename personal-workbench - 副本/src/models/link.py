@@ -10,7 +10,6 @@ class Link:
     """Represents a web link with name, URL, category and tags."""
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str = ""  # 用户ID，用于数据隔离
     name: str = ""
     url: str = ""
     category: str = ""  # 分类
@@ -22,7 +21,6 @@ class Link:
         """Serialize link to dictionary."""
         return {
             "id": self.id,
-            "user_id": self.user_id,
             "name": self.name,
             "url": self.url,
             "category": self.category,
@@ -36,7 +34,6 @@ class Link:
         """Deserialize link from dictionary."""
         return cls(
             id=data["id"],
-            user_id=data.get("user_id", ""),
             name=data["name"],
             url=data["url"],
             category=data.get("category", ""),

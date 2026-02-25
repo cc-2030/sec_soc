@@ -27,7 +27,6 @@ class Task:
     """Represents a task with full lifecycle tracking."""
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str = ""  # 用户ID，用于数据隔离
     title: str = ""
     description: str = ""
     category: str = ""  # 分类/标签
@@ -43,7 +42,6 @@ class Task:
         """Serialize task to dictionary."""
         return {
             "id": self.id,
-            "user_id": self.user_id,
             "title": self.title,
             "description": self.description,
             "category": self.category,
@@ -67,7 +65,6 @@ class Task:
         
         return cls(
             id=data["id"],
-            user_id=data.get("user_id", ""),
             title=data["title"],
             description=data.get("description", ""),
             category=data.get("category", ""),

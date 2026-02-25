@@ -1,6 +1,5 @@
 # Personal Workbench Dependencies
 flask>=3.0.0
-flask-login>=0.6.3
 requests>=2.28.0
 hypothesis>=6.0.0
 pytest>=7.0.0
